@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-kr-realestate"
+version = "0.1.0"
+description = "한국 부동산 투자 분석을 위한 MCP 서버"
+authors = [
+    { name = "Changoo Lee", email = "lchangoo@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+
+[project.urls]
+"Homepage" = "https://github.com/ChangooLee/mcp-kr-realestate"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "mypy"
+]
+
+[project.dependencies]
+requests = ">=2.28.0"
+pandas = ">=1.5.0"
+python-dotenv = ">=1.0.0" 
