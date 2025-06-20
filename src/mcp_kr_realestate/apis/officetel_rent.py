@@ -8,70 +8,87 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import numpy as np
 import json
-from mcp_kr_realestate.apis.molit_api import MolitApiClient
 
 load_dotenv()
 
-def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
+def get_apt_rent_data(lawd_cd: str, deal_ymd: str) -> str:
     """
-    오피스텔 전월세 실거래 자료를 조회합니다.
+    아파트 전월세 실거래가 API 호출 및 전체 데이터 JSON+통계 반환 (curl subprocess + requests fallback, 반복 수집)
+    Args:
+        lawd_cd (str): 법정동코드 5자리
+        deal_ymd (str): 거래년월 (YYYYMM)
+    Returns:
+        str: 전체 거래 데이터와 통계가 포함된 JSON 문자열
     """
-    client = MolitApiClient()
-    endpoint = "/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent"
-    
-    # Check for cached data
-    cache_dir = os.path.join(os.path.dirname(__file__), '..', 'utils', 'data')
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_file = os.path.join(cache_dir, f"OFFICETEL_RENT_{lawd_cd}_{deal_ymd}.json")
-    
-    if os.path.exists(cache_file):
-        with open(cache_file, 'r', encoding='utf-8') as f:
-            return f.read()
+    api_key = os.environ.get("PUBLIC_DATA_API_KEY_ENCODED")
+    if not api_key:
+        raise ValueError("환경변수 PUBLIC_DATA_API_KEY_ENCODED가 설정되어 있지 않습니다.")
 
-    # Fetch data from API
+    base_url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent"
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    curl_path = shutil.which("curl")
+    num_of_rows = 100
     all_items = []
+    total_count = None
     page_no = 1
-    total_count = 0
-    
     while True:
-        xml_data = client.fetch_data(endpoint, lawd_cd, deal_ymd, pageNo=page_no, numOfRows=1000)
-        root = ET.fromstring(xml_data)
-        
-        if page_no == 1:
-            total_count_element = root.find('.//totalCount')
-            if total_count_element is not None:
-                tc_text = total_count_element.text
-                if tc_text and tc_text.isdigit():
+        params = {
+            'LAWD_CD': lawd_cd,
+            'DEAL_YMD': deal_ymd,
+            'serviceKey': api_key,
+            'numOfRows': num_of_rows,
+            'pageNo': page_no
+        }
+        curl_url = f"{base_url}?LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&serviceKey={api_key}&numOfRows={num_of_rows}&pageNo={page_no}"
+        data = None
+        if curl_path:
+            try:
+                result = subprocess.run([
+                    curl_path, "-s", "-H", f"User-Agent: {user_agent}", curl_url
+                ], capture_output=True, text=True, check=True)
+                data = result.stdout
+            except Exception:
+                pass  # fallback to requests
+        if data is None:
+            try:
+                response = requests.get(
+                    base_url, params=params, headers={"User-Agent": user_agent}, verify=False, timeout=30
+                )
+                response.raise_for_status()
+                data = response.text
+            except Exception as e:
+                raise RuntimeError(f"Both curl and requests failed to fetch data: {e}")
+        # XML 파싱
+        root = ET.fromstring(data)
+        if total_count is None:
+            try:
+                tc_text = root.findtext('.//totalCount')
+                if tc_text is not None and tc_text.strip() != '':
                     total_count = int(tc_text)
-        
+                else:
+                    total_count = 0
+            except Exception:
+                total_count = 0
         items = root.findall('.//item')
-        if not items:
-            break
-            
         all_items.extend(items)
-        
-        if total_count == 0 and page_no == 1:
-            break
-        
-        if len(all_items) >= total_count:
+        if len(all_items) >= total_count or not items:
             break
         page_no += 1
-
-    if not all_items:
-        return json.dumps({"byDong": [], "meta": {"lawd_cd": lawd_cd, "deal_ymd": deal_ymd, "totalCount": 0}}, ensure_ascii=False)
-
+    # XML -> JSON 변환
     records = []
     for item in all_items:
         row = {child.tag: child.text for child in item}
         records.append(row)
+    if not records:
+        return json.dumps({"byDong": [], "meta": {"lawd_cd": lawd_cd, "deal_ymd": deal_ymd, "totalCount": 0}}, ensure_ascii=False)
     
     df = pd.DataFrame(records)
 
     def to_num(s):
         try:
-            return float(str(s).replace(',', '').strip() or 0)
+            return float(str(s).replace(',', ''))
         except (ValueError, TypeError):
-            return 0.0
+            return np.nan
 
     def to_eok(val):
         try:
@@ -85,6 +102,7 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
                 return name
         return None
 
+    # 숫자형 컬럼 생성 (안전하게)
     num_cols_map = {
         'depositNum': ['보증금액', '보증금'],
         'rentFeeNum': ['월세금액', '월세'],
@@ -98,18 +116,24 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
         if col_name:
             df[new_col] = df[col_name].map(to_num)
         else:
-            df[new_col] = 0.0
+            df[new_col] = np.nan
+    
+    # NaN 값을 0으로 채워서 숫자형으로 통일
+    df['depositNum'] = df['depositNum'].fillna(0)
+    df['rentFeeNum'] = df['rentFeeNum'].fillna(0)
 
-    dong_col_name = get_col_name(df, '법정동읍면동명', '법정동', 'umdNm', 'dong')
+    dong_col_name = get_col_name(df, '법정동', 'umdNm', 'dong')
     if not dong_col_name:
         df['temp_dong'] = '전체'
         dong_col_name = 'temp_dong'
 
     byDong = []
     for dong, group in df.groupby(dong_col_name):
+        # 전세, 월세 분리
         jeonse_df = group[group['rentFeeNum'] == 0].copy()
         wolse_df = group[group['rentFeeNum'] > 0].copy()
 
+        # 전세 통계
         jeonse_stats = {}
         if not jeonse_df.empty:
             avg_deposit = float(jeonse_df['depositNum'].mean())
@@ -117,12 +141,16 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
             min_deposit = float(jeonse_df['depositNum'].min())
             jeonse_stats = {
                 'count': len(jeonse_df),
-                'avgDeposit': avg_deposit, 'avgDepositEok': to_eok(avg_deposit),
-                'maxDeposit': max_deposit, 'maxDepositEok': to_eok(max_deposit),
-                'minDeposit': min_deposit, 'minDepositEok': to_eok(min_deposit),
+                'avgDeposit': avg_deposit,
+                'avgDepositEok': to_eok(avg_deposit),
+                'maxDeposit': max_deposit,
+                'maxDepositEok': to_eok(max_deposit),
+                'minDeposit': min_deposit,
+                'minDepositEok': to_eok(min_deposit),
                 'deals': jeonse_df.to_dict(orient='records')
             }
 
+        # 월세 통계
         wolse_stats = {}
         if not wolse_df.empty:
             avg_deposit_w = float(wolse_df['depositNum'].mean())
@@ -133,9 +161,12 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
             min_rent = float(wolse_df['rentFeeNum'].min())
             wolse_stats = {
                 'count': len(wolse_df),
-                'avgDeposit': avg_deposit_w, 'avgDepositEok': to_eok(avg_deposit_w),
-                'maxDeposit': max_deposit_w, 'maxDepositEok': to_eok(max_deposit_w),
-                'minDeposit': min_deposit_w, 'minDepositEok': to_eok(min_deposit_w),
+                'avgDeposit': avg_deposit_w,
+                'avgDepositEok': to_eok(avg_deposit_w),
+                'maxDeposit': max_deposit_w,
+                'maxDepositEok': to_eok(max_deposit_w),
+                'minDeposit': min_deposit_w,
+                'minDepositEok': to_eok(min_deposit_w),
                 'avgRent': avg_rent,
                 'maxRent': max_rent,
                 'minRent': min_rent,
@@ -144,15 +175,31 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
         
         if jeonse_stats or wolse_stats:
             byDong.append({
-                'dong': dong.strip(),
+                'dong': dong,
                 'jeonse': jeonse_stats,
                 'wolse': wolse_stats
             })
-            
+
     meta = {"lawd_cd": lawd_cd, "deal_ymd": deal_ymd, "totalCount": total_count}
     result = {"byDong": byDong, "meta": meta}
     
-    with open(cache_file, 'w', encoding='utf-8') as f:
-        json.dump(result, f, ensure_ascii=False, indent=4)
+    # (옵션) 원본 XML 저장
+    data_dir = Path(__file__).parent.parent / "utils" / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    file_path = data_dir / f"APT_RENT_{lawd_cd}_{deal_ymd}.xml"
+    response_root = ET.Element('response')
+    header = ET.SubElement(response_root, 'header')
+    ET.SubElement(header, 'resultCode').text = '000'
+    ET.SubElement(header, 'resultMsg').text = 'OK'
+    body = ET.SubElement(response_root, 'body')
+    items_elem = ET.SubElement(body, 'items')
+    for item in all_items:
+        items_elem.append(item)
+    ET.SubElement(body, 'numOfRows').text = str(num_of_rows)
+    ET.SubElement(body, 'pageNo').text = '1'
+    ET.SubElement(body, 'totalCount').text = str(total_count if total_count is not None else len(all_items))
+    xml_str = ET.tostring(response_root, encoding='utf-8', method='xml').decode('utf-8')
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(xml_str)
         
     return json.dumps(result, ensure_ascii=False) 
