@@ -11,9 +11,9 @@ import json
 
 load_dotenv()
 
-def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
+def get_rh_rent_data(lawd_cd: str, deal_ymd: str) -> str:
     """
-    오피스텔 전월세 실거래가 API 호출 및 전체 데이터 JSON+통계 반환 (curl subprocess + requests fallback, 반복 수집)
+    연립다세대 전월세 실거래가 API 호출 및 전체 데이터 JSON+통계 반환 (curl subprocess + requests fallback, 반복 수집)
     Args:
         lawd_cd (str): 법정동코드 5자리
         deal_ymd (str): 거래년월 (YYYYMM)
@@ -24,7 +24,7 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
     if not api_key:
         raise ValueError("환경변수 PUBLIC_DATA_API_KEY_ENCODED가 설정되어 있지 않습니다.")
 
-    base_url = "https://apis.data.go.kr/1613000/RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent"
+    base_url = "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent"
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     curl_path = shutil.which("curl")
     num_of_rows = 100
@@ -106,9 +106,8 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
     num_cols_map = {
         'depositNum': ['보증금액', '보증금'],
         'rentFeeNum': ['월세금액', '월세'],
-        'areaNum': ['전용면적', 'area', 'excluUseAr'],
+        'areaNum': ['계약면적', 'area', 'contractArea'],
         'buildYearNum': ['건축년도', 'buildYear'],
-        'floorNum': ['층', 'floor'],
         'dealDayNum': ['일', 'dealDay']
     }
     for new_col, old_cols in num_cols_map.items():
@@ -186,10 +185,10 @@ def get_officetel_rent_data(lawd_cd: str, deal_ymd: str) -> str:
     # (옵션) 원본 XML 저장
     data_dir = Path(__file__).parent.parent / "utils" / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    file_path = data_dir / f"OFFICETEL_RENT_{lawd_cd}_{deal_ymd}.xml"
+    file_path = data_dir / f"RH_RENT_{lawd_cd}_{deal_ymd}.xml"
     response_root = ET.Element('response')
     header = ET.SubElement(response_root, 'header')
-    ET.SubElement(header, 'resultCode').text = '000'
+    ET.SubElement(header, 'resultCode').text = '00'
     ET.SubElement(header, 'resultMsg').text = 'OK'
     body = ET.SubElement(response_root, 'body')
     items_elem = ET.SubElement(body, 'items')

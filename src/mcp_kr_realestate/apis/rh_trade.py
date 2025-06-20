@@ -13,7 +13,7 @@ load_dotenv()
 
 def get_rh_trade_data(lawd_cd: str, deal_ymd: str) -> str:
     """
-    단독/다가구 매매 실거래가 API 호출 및 전체 데이터 JSON+통계 반환 (curl subprocess + requests fallback, 반복 수집)
+    연립다세대 매매 실거래가 API 호출 및 전체 데이터 JSON+통계 반환 (curl subprocess + requests fallback, 반복 수집)
     Args:
         lawd_cd (str): 법정동코드 5자리
         deal_ymd (str): 거래년월 (YYYYMM)
