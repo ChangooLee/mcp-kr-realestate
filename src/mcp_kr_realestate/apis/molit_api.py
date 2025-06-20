@@ -2,40 +2,53 @@ import os
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
+import subprocess
+import shutil
+import xml.etree.ElementTree as ET
+import pandas as pd
+import numpy as np
+import json
 
 load_dotenv()
 
-"""
-국토교통부 실거래가 API 클라이언트
-"""
+class MolitApiClient:
+    def __init__(self):
+        self.api_key = os.environ.get("PUBLIC_DATA_API_KEY_ENCODED")
+        if not self.api_key:
+            raise ValueError("환경변수 PUBLIC_DATA_API_KEY_ENCODED가 설정되어 있지 않습니다.")
+        self.base_url = "http://apis.data.go.kr/1613000"
+        self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        self.curl_path = shutil.which("curl")
 
-def get_nrg_trade_data(lawd_cd: str, deal_ymd: str) -> str:
-    """
-    상업업무용 부동산 매매 실거래가 API 호출 및 XML 저장
-    Args:
-        lawd_cd (str): 법정동코드 5자리
-        deal_ymd (str): 거래년월 (YYYYMM)
-    Returns:
-        str: 저장된 XML 파일 경로
-    """
-    api_key = os.environ.get("PUBLIC_DATA_API_KEY_ENCODED")
-    if not api_key:
-        raise ValueError("환경변수 PUBLIC_DATA_API_KEY_ENCODED가 설정되어 있지 않습니다.")
+    def fetch_data(self, endpoint: str, lawd_cd: str, deal_ymd: str, pageNo: int = 1, numOfRows: int = 1000) -> str:
+        url = f"{self.base_url}{endpoint}"
+        params = {
+            'LAWD_CD': lawd_cd,
+            'DEAL_YMD': deal_ymd,
+            'serviceKey': self.api_key,
+            'numOfRows': numOfRows,
+            'pageNo': pageNo
+        }
+        
+        param_str = "&".join([f"{k}={v}" for k, v in params.items()])
+        curl_url = f"{url}?{param_str}"
 
-    base_url = "http://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade"
-    headers = {"serviceKey": api_key}
-    params = {
-        'LAWD_CD': lawd_cd,
-        'DEAL_YMD': deal_ymd,
-        'stdt': deal_ymd[:4],  # 조회시작년도(YYYY)
-    }
-    response = requests.get(base_url, params=params, headers=headers, verify=False)
-    response.raise_for_status()
+        if self.curl_path:
+            try:
+                result = subprocess.run(
+                    [self.curl_path, "-s", "-H", f"User-Agent: {self.user_agent}", curl_url],
+                    capture_output=True, check=True
+                )
+                return result.stdout.decode('utf-8')
+            except Exception:
+                pass  # fallback to requests
 
-    # 저장 경로
-    data_dir = Path(__file__).parent.parent / "utils" / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    file_path = data_dir / f"NRG_{lawd_cd}_{deal_ymd}.xml"
-    with open(file_path, "wb") as f:
-        f.write(response.content)
-    return str(file_path) 
+        try:
+            response = requests.get(url, params=params, headers={"User-Agent": self.user_agent}, verify=False, timeout=30)
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            raise RuntimeError(f"Both curl and requests failed to fetch data: {e}")
+
+# 기존 함수들은 삭제 또는 비활성화 (MolitApiClient로 대체)
+# def get_nrg_trade_data ... 
