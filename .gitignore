@@ -108,6 +108,9 @@ env.bak/
 venv.bak/
 src/mcp_kr_realestate/utils/data/
 
+src/mcp_kr_realestate/utils/cache/
+src/mcp_kr_realestate/utils/cache/
+
 # macOS
 .DS_Store
 
