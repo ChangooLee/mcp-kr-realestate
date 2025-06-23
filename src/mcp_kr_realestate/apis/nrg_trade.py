@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 import json
 from dotenv import load_dotenv
+import subprocess
+import shutil
 
 load_dotenv()
 
@@ -45,12 +47,29 @@ class NRGTradeAPI:
                 'pageNo': str(page_no)
             }
             data = None
-            try:
-                resp = requests.get(base_url, params=params, headers={"User-Agent": "Mozilla/5.0"}, verify=False, timeout=30)
-                resp.raise_for_status()
-                data = resp.text
-            except Exception as e:
-                raise RuntimeError(f"실거래가 API 요청 실패: {e}")
+
+            # apt_trade.py와 동일하게 curl 우선 사용
+            curl_url = f"{base_url}?{'&'.join([f'{k}={v}' for k, v in params.items()])}"
+            user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            curl_path = shutil.which("curl")
+
+            if curl_path:
+                try:
+                    result = subprocess.run(
+                        [curl_path, "-s", "-g", "-H", f"User-Agent: {user_agent}", curl_url],
+                        capture_output=True, text=True, check=True, encoding='utf-8'
+                    )
+                    data = result.stdout
+                except Exception:
+                    pass  # requests로 fallback
+
+            if data is None:
+                try:
+                    resp = requests.get(base_url, params=params, headers={"User-Agent": user_agent}, verify=False, timeout=30)
+                    resp.raise_for_status()
+                    data = resp.text
+                except Exception as e:
+                    raise RuntimeError(f"실거래가 API 요청 실패 (curl, requests 모두 실패): {e}")
             
             root = ET.fromstring(data)
             
@@ -71,8 +90,10 @@ class NRGTradeAPI:
                 break
             page_no += 1
 
-        # XML -> JSON 변환 및 데이터 처리
-        records = [{'부동산': item.findtext('부동산'), '거래금액': item.findtext('거래금액'), '법정동': item.findtext('법정동'), '지역코드': item.findtext('지역코드'), '층': item.findtext('층'), '년': item.findtext('년'), '월': item.findtext('월'), '일': item.findtext('일'), '전용면적': item.findtext('전용면적'), '지번': item.findtext('지번'), '건축년도': item.findtext('건축년도'), '용도지역': item.findtext('용도지역'), '주용도': item.findtext('주용도'), '유형': item.findtext('유형'), '해제여부': item.findtext('해제여부'), '해제사유발생일': item.findtext('해제사유발생일')} for item in all_items]
+        # XML -> JSON 변환 및 데이터 처리 (apt_trade.py 방식 적용)
+        records = []
+        for item in all_items:
+            records.append({child.tag: child.text for child in item})
         
         if not records:
             return json.dumps({"byDong": [], "meta": {"lawd_cd": lawd_cd, "deal_ymd": deal_ymd, "totalCount": 0}}, ensure_ascii=False)
@@ -92,15 +113,15 @@ class NRGTradeAPI:
                 if n in df.columns: return df[n]
             return pd.Series(np.nan, index=df.index)
 
-        df['dealAmountNum'] = get_col(df, '거래금액').apply(to_num)
-        df['areaNum'] = get_col(df, '전용면적').apply(to_num)
-        df['buildYearNum'] = get_col(df, '건축년도').apply(to_num)
-        df['floorNum'] = get_col(df, '층').apply(to_num)
-        df['dealDayNum'] = get_col(df, '일').apply(to_num)
+        df['dealAmountNum'] = get_col(df, '거래금액', 'dealAmount').apply(to_num)
+        df['areaNum'] = get_col(df, '전용면적', 'area', 'excluUseAr').apply(to_num)
+        df['buildYearNum'] = get_col(df, '건축년도', 'buildYear').apply(to_num)
+        df['floorNum'] = get_col(df, '층', 'floor').apply(to_num)
+        df['dealDayNum'] = get_col(df, '일', 'dealDay').apply(to_num)
 
-        dong_col = get_col(df, '법정동')
+        dong_col = get_col(df, '법정동', 'umdNm', 'dong')
         byDong = []
-        if '법정동' in df.columns:
+        if dong_col.notna().any():
             for dong, group in df.groupby(dong_col):
                 group = group.dropna(subset=['dealAmountNum'])
                 if group.empty: continue
