@@ -96,33 +96,37 @@ def get_apt_rent_data(lawd_cd: str, deal_ymd: str) -> str:
         except (ValueError, TypeError):
             return None
 
-    def get_col_name(df, *names):
+    def get_first_valid_col(df, *names):
         for name in names:
             if name in df.columns:
                 return name
         return None
 
-    # 숫자형 컬럼 생성 (안전하게)
+    # 보증금/월세: 문자열 필드 우선적으로 파싱해서 depositNum/rentFeeNum 생성
+    deposit_col = get_first_valid_col(df, '보증금', '보증금액', 'deposit')
+    rent_col = get_first_valid_col(df, '월세', '월세금액', 'monthlyRent')
+    df['depositNum'] = df[deposit_col].map(to_num) if deposit_col else np.nan
+    df['rentFeeNum'] = df[rent_col].map(to_num) if rent_col else np.nan
+
+    # 나머지 숫자형 컬럼 생성
     num_cols_map = {
-        'depositNum': ['보증금액', '보증금'],
-        'rentFeeNum': ['월세금액', '월세'],
         'areaNum': ['전용면적', 'area', 'excluUseAr'],
         'buildYearNum': ['건축년도', 'buildYear'],
         'floorNum': ['층', 'floor'],
         'dealDayNum': ['일', 'dealDay']
     }
     for new_col, old_cols in num_cols_map.items():
-        col_name = get_col_name(df, *old_cols)
+        col_name = get_first_valid_col(df, *old_cols)
         if col_name:
             df[new_col] = df[col_name].map(to_num)
         else:
             df[new_col] = np.nan
-    
+
     # NaN 값을 0으로 채워서 숫자형으로 통일
     df['depositNum'] = df['depositNum'].fillna(0)
     df['rentFeeNum'] = df['rentFeeNum'].fillna(0)
 
-    dong_col_name = get_col_name(df, '법정동', 'umdNm', 'dong')
+    dong_col_name = get_first_valid_col(df, '법정동', 'umdNm', 'dong')
     if not dong_col_name:
         df['temp_dong'] = '전체'
         dong_col_name = 'temp_dong'
