@@ -75,7 +75,7 @@ mcp = FastMCP(
     lifespan=realestate_lifespan,
 )
 
-for module_name in ["transaction_tools"]:
+for module_name in ["transaction_tools", "analysis_tools"]:
     importlib.import_module(f"mcp_kr_realestate.tools.{module_name}")
 
 def main():
