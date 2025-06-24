@@ -131,15 +131,15 @@ def get_region_codes(region_name: str) -> TextContent:
             (region_name in (r.get('읍면동명') or ''))
         )]
         total_count = len(filtered)
-        preview = filtered[:10]
+        preview = filtered[:5]
         if total_count == 0:
             return TextContent(type="text", text=json.dumps({"error": f"'{region_name}'(으)로 일치하는 법정동 코드가 없습니다."}, ensure_ascii=False))
         result = {
             "total_count": total_count,
             "preview": preview,
         }
-        if total_count > 10:
-            result["message"] = f"검색 결과가 {total_count}건입니다. 미리보기 10건만 표시합니다. 전체 목록이 필요하면 '상세코드'로 별도 요청하세요."
+        if total_count > 5:
+            result["message"] = f"검색 결과가 {total_count}건입니다. 미리보기 5건만 표시합니다. 전체 목록이 필요하면 '상세코드'로 별도 요청하세요."
         return TextContent(type="text", text=json.dumps(result, ensure_ascii=False))
     except Exception as e:
         return TextContent(type="text", text=json.dumps({"error": f"법정동 코드 조회 중 오류: {e}"}, ensure_ascii=False))
