@@ -86,6 +86,21 @@ def get_reb_stat_items_all(params, page_size=100):
 def get_reb_stat_data_all(params, page_size=100):
     all_items = _reb_api_collect_all("/SttsApiTblData.do", params, "stat_data", page_size=page_size)
     # 최신 데이터 우선 정렬
+    # all_items가 SttsApiTblData의 row 리스트인지 확인, 아니라면 파싱
+    if all_items and isinstance(all_items, dict) and "SttsApiTblData" in all_items:
+        rows = []
+        for entry in all_items["SttsApiTblData"]:
+            if "row" in entry:
+                rows.extend(entry["row"])
+        all_items = rows
+    elif all_items and isinstance(all_items, list) and all(isinstance(x, dict) and "row" in x for x in all_items):
+        # 혹시 여러 page의 row가 합쳐진 경우
+        rows = []
+        for entry in all_items:
+            if "row" in entry:
+                rows.extend(entry["row"])
+        all_items = rows
+    # row만 남기고 저장
     df = pd.DataFrame(all_items)
     if "WRTTIME_IDTFR_ID" in df.columns:
         df = df.sort_values(by="WRTTIME_IDTFR_ID", ascending=False)

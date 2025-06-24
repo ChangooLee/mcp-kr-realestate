@@ -11,6 +11,8 @@ import json
 from typing import Any, Optional, Dict
 from datetime import datetime
 import os
+from dateutil.parser import parse as date_parse
+import re
 
 from mcp_kr_realestate.server import mcp
 from mcp_kr_realestate.utils.ctx_helper import with_context
@@ -1542,31 +1544,64 @@ def analyze_reb_stat_items(params: dict) -> TextContent:
     }
     return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False))
 
+def _get_data_cache_path(statbl_id):
+    return f"/tmp/reb_stats_cache/stat_data_{statbl_id}.json"
+
 @mcp.tool(
     name="analyze_reb_stat_data",
-    description="""Analyzes REB statistical data from a cache file. If the file does not exist, it will be automatically created.\nYou can filter by any column using the 'filter' parameter.\nResults are sorted by the most recent time.\nResult should be visualized using a chart or table.\nfilter example: {\"CLS_NM\": \"서울특별시\", \"ITM_NM\": \"지수\", \"WRTTIME_IDTFR_ID\": \"2025-05\"}\nBy default, the preview shows the latest 5 records.""",
+    description="""Analyzes REB statistical data for a given STATBL_ID.\nYou can simply provide STATBL_ID and the tool will automatically use the latest data.\nIf filter['time'] is not provided or set to 'latest', the tool will analyze the most recent period.\nIf the data cache does not exist, it will be created automatically.\nIf no data is found, the tool will inform you of the latest available period.""",
     tags={"realestate", "statistics", "REB", "data"}
 )
 def analyze_reb_stat_data(params: dict) -> TextContent:
-    cache_path = params.get("cache_path")
+    import os, json, pandas as pd
+    statbl_id = params.get("STATBL_ID")
     filter = params.get("filter", {})
+    cache_path = params.get("cache_path")
+    # 자동 캐시 경로 연동
+    if not cache_path and statbl_id:
+        cache_path = _get_data_cache_path(statbl_id)
     if not cache_path or not os.path.exists(cache_path):
-        from mcp_kr_realestate.apis.reb_api import cache_stat_list_full
-        cache_path = cache_stat_list_full({})
-    import pandas as pd
-    import json
+        from mcp_kr_realestate.apis.reb_api import get_reb_stat_data_all
+        if statbl_id:
+            all_data = get_reb_stat_data_all({"STATBL_ID": statbl_id})
+            cache_path = _get_data_cache_path(statbl_id)
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(all_data, f, ensure_ascii=False)
+        else:
+            from mcp_kr_realestate.apis.reb_api import cache_stat_list_full
+            cache_path = cache_stat_list_full({})
     with open(cache_path, "r", encoding="utf-8") as f:
         all_items = json.load(f)
     df = pd.DataFrame(all_items)
     if "WRTTIME_IDTFR_ID" in df.columns:
         df = df.sort_values(by="WRTTIME_IDTFR_ID", ascending=False)
+    # 날짜 형식 자동 변환 및 'latest' 지원
+    time_val = filter.get("WRTTIME_IDTFR_ID") or filter.get("time")
+    if not time_val or str(time_val).lower() == "latest":
+        # 자동 최신 시점 분석
+        if "WRTTIME_IDTFR_ID" in df.columns and not df.empty:
+            latest = df["WRTTIME_IDTFR_ID"].max()
+            df = df[df["WRTTIME_IDTFR_ID"] == latest]
+    else:
+        norm_time = _normalize_time_str(time_val)
+        if norm_time and "WRTTIME_IDTFR_ID" in df.columns:
+            df = df[df["WRTTIME_IDTFR_ID"].astype(str).str.startswith(norm_time)]
     for k, v in filter.items():
+        if k in ["WRTTIME_IDTFR_ID", "time"]:
+            continue
         if k in df.columns:
             df = df[df[k] == v]
     preview = df.head(5).to_dict(orient="records")
     stats = {}
     if "DTA_VAL" in df.columns:
         stats = df["DTA_VAL"].describe().to_dict()
+    if len(df) == 0:
+        # 최신 기간 안내
+        latest = None
+        if "WRTTIME_IDTFR_ID" in pd.DataFrame(all_items).columns:
+            latest = pd.DataFrame(all_items)["WRTTIME_IDTFR_ID"].max()
+        msg = {"error": "No data for the given filter.", "latest_available_period": latest}
+        return TextContent(type="text", text=json.dumps(msg, ensure_ascii=False))
     summary = {
         "total_count": len(df),
         "time_range": [df["WRTTIME_IDTFR_ID"].min(), df["WRTTIME_IDTFR_ID"].max()] if "WRTTIME_IDTFR_ID" in df.columns else [],
@@ -1609,3 +1644,120 @@ analyze_reb_stat_items.__doc__ = """Step 2: Analyze the items of a specific REB 
 
 # ... 기존 analyze_reb_stat_data ...
 analyze_reb_stat_data.__doc__ = """Step 3: Analyze the data of a specific REB statistical table.\n\nWorkflow example:\n1. search_reb_stat_tables({\"filter\": {\"STATBL_NM\": \"가격지수\"}})\n2. analyze_reb_stat_items({\"cache_path\": ..., \"STATBL_ID\": ...})\n3. analyze_reb_stat_data({\"cache_path\": ..., \"STATBL_ID\": ..., \"filter\": {...}})\n\nInput the cache_path and STATBL_ID you found in step 1.\nYou can filter by any column using the 'filter' parameter.\nResults are sorted by the most recent time.\nResult should be visualized using a chart or table.\nBy default, the preview shows the latest 5 records."""
+
+@mcp.tool(
+    name="get_latest_available_period",
+    description="""Returns the latest available period (WRTTIME_IDTFR_ID) for the given STATBL_ID from the cached data.\nUse this to know the most recent data point you can analyze.""",
+    tags={"realestate", "statistics", "REB", "meta"}
+)
+def get_latest_available_period(params: dict) -> TextContent:
+    import os, json, pandas as pd
+    statbl_id = params.get("STATBL_ID")
+    cache_path = params.get("cache_path")
+    if not cache_path or not os.path.exists(cache_path):
+        return TextContent(type="text", text=json.dumps({"error": "Cache file not found. Please provide a valid cache_path."}))
+    with open(cache_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    df = pd.DataFrame(data)
+    if "STATBL_ID" in df.columns:
+        df = df[df["STATBL_ID"] == statbl_id]
+    if "WRTTIME_IDTFR_ID" not in df.columns or df.empty:
+        return TextContent(type="text", text=json.dumps({"error": "No time column or no data for this STATBL_ID."}))
+    latest = df["WRTTIME_IDTFR_ID"].max()
+    return TextContent(type="text", text=json.dumps({"latest_period": latest}))
+
+@mcp.tool(
+    name="get_data_update_info",
+    description="""Returns meta information for the given STATBL_ID: data cycle, start/end year, and latest available period.""",
+    tags={"realestate", "statistics", "REB", "meta"}
+)
+def get_data_update_info(params: dict) -> TextContent:
+    import os, json, pandas as pd
+    statbl_id = params.get("STATBL_ID")
+    cache_path = params.get("cache_path", "/tmp/reb_stats_cache/stat_list_full.json")
+    if not os.path.exists(cache_path):
+        from mcp_kr_realestate.apis.reb_api import cache_stat_list_full
+        cache_path = cache_stat_list_full({})
+    with open(cache_path, "r", encoding="utf-8") as f:
+        stats = json.load(f)
+    df = pd.DataFrame(stats)
+    row = df[df["STATBL_ID"] == statbl_id].iloc[0] if not df[df["STATBL_ID"] == statbl_id].empty else None
+    if row is None:
+        return TextContent(type="text", text=json.dumps({"error": "STATBL_ID not found in stat table list."}))
+    info = {
+        "STATBL_ID": statbl_id,
+        "STATBL_NM": row.get("STATBL_NM"),
+        "DTACYCLE_CD": row.get("DTACYCLE_CD"),
+        "DTACYCLE_NM": row.get("DTACYCLE_NM"),
+        "DATA_START_YY": row.get("DATA_START_YY"),
+        "DATA_END_YY": row.get("DATA_END_YY"),
+    }
+    # 최신 시점도 추가
+    data_cache_path = params.get("data_cache_path")
+    if data_cache_path and os.path.exists(data_cache_path):
+        with open(data_cache_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        ddf = pd.DataFrame(data)
+        if "WRTTIME_IDTFR_ID" in ddf.columns:
+            info["latest_period"] = ddf["WRTTIME_IDTFR_ID"].max()
+    return TextContent(type="text", text=json.dumps(info, ensure_ascii=False))
+
+@mcp.tool(
+    name="get_latest_comprehensive_analysis",
+    description="""Performs a comprehensive analysis for the given STATBL_ID using the latest available data.\nYou can simply provide STATBL_ID and the tool will automatically use the latest data.\nNo need to specify a time filter; the tool will use the latest data automatically.\nIf the data cache does not exist, it will be created automatically.\nIf no data is found, the tool will inform you of the latest available period.""",
+    tags={"realestate", "statistics", "REB", "analysis", "auto"}
+)
+def get_latest_comprehensive_analysis(params: dict) -> TextContent:
+    import os, json, pandas as pd
+    statbl_id = params.get("STATBL_ID")
+    data_cache_path = params.get("data_cache_path")
+    if not data_cache_path and statbl_id:
+        data_cache_path = _get_data_cache_path(statbl_id)
+    if not data_cache_path or not os.path.exists(data_cache_path):
+        from mcp_kr_realestate.apis.reb_api import get_reb_stat_data_all
+        if statbl_id:
+            all_data = get_reb_stat_data_all({"STATBL_ID": statbl_id})
+            data_cache_path = _get_data_cache_path(statbl_id)
+            with open(data_cache_path, "w", encoding="utf-8") as f:
+                json.dump(all_data, f, ensure_ascii=False)
+    with open(data_cache_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    df = pd.DataFrame(data)
+    if "WRTTIME_IDTFR_ID" not in df.columns or df.empty:
+        latest = None
+        if "WRTTIME_IDTFR_ID" in df.columns:
+            latest = df["WRTTIME_IDTFR_ID"].max()
+        return TextContent(type="text", text=json.dumps({"error": "No time column or no data for this STATBL_ID.", "latest_available_period": latest}))
+    latest = df["WRTTIME_IDTFR_ID"].max()
+    latest_df = df[df["WRTTIME_IDTFR_ID"] == latest]
+    # 트렌드: 최근 6개월/분기 등
+    trend_df = df.sort_values(by="WRTTIME_IDTFR_ID", ascending=False).head(6)
+    stats = {}
+    if "DTA_VAL" in latest_df.columns:
+        stats = latest_df["DTA_VAL"].describe().to_dict()
+    summary = {
+        "STATBL_ID": statbl_id,
+        "latest_period": latest,
+        "latest_stats": stats,
+        "trend": trend_df[["WRTTIME_IDTFR_ID", "DTA_VAL"]].to_dict(orient="records") if "DTA_VAL" in trend_df.columns else [],
+        "preview": latest_df.head(5).to_dict(orient="records")
+    }
+    return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False))
+
+def _normalize_time_str(time_str):
+    # 지원: '2025-05', '202505', '2025년 5월', '2025.05', '2025/05' 등
+    import re
+    if not time_str:
+        return None
+    if isinstance(time_str, int):
+        return str(time_str)
+    s = str(time_str)
+    s = s.replace("년", "-").replace("월", "").replace(".", "-").replace("/", "-").replace(" ", "-")
+    s = re.sub(r"-+", "-", s)
+    m = re.match(r"(\d{4})-(\d{1,2})$", s)
+    if m:
+        return f"{m.group(1)}{int(m.group(2)):02d}"
+    m = re.match(r"(\d{4})(\d{2})$", s)
+    if m:
+        return f"{m.group(1)}{m.group(2)}"
+    return s
