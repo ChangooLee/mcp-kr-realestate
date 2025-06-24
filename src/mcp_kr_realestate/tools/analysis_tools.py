@@ -32,27 +32,67 @@ def to_numeric(series: pd.Series) -> pd.Series:
     """Helper function to convert series to numeric, handling commas."""
     return pd.to_numeric(series.astype(str).str.replace(',', ''), errors='coerce')
 
-def format_unit(value, unit_str, precision=0):
-    """Helper function to format a numeric value with a unit string."""
+def as_value_unit(value, unit_str, precision=0):
     if pd.isna(value):
         return None
-    return f"{value:,.{precision}f} {unit_str}"
+    if unit_str == "만원":
+        v = float(value) * 10000
+        unit_str = "원"
+    elif unit_str == "만원/평":
+        v = float(value) * 10000
+        unit_str = "원/평"
+    else:
+        if isinstance(value, (np.integer, int)):
+            v = int(value)
+        else:
+            v = float(value)
+            if precision == 0:
+                v = int(round(v))
+    return {"value": v, "unit": unit_str}
 
 def clean_deal_for_display(series):
-    """Cleans a deal (pandas Series) for JSON output."""
     deal_dict = series.where(pd.notna(series), None).to_dict()
-    
     # Format date
     try:
         deal_dict['dealDate'] = f"{deal_dict.get('dealYear')}-{str(deal_dict.get('dealMonth','')).zfill(2)}-{str(deal_dict.get('dealDay','')).zfill(2)}"
     except (TypeError, ValueError):
         deal_dict['dealDate'] = None
-
     # Remove intermediate columns
     cols_to_remove = ['거래금액_num', '전용면적_num', '건축년도_num', '평당가_만원', '건물연령', '건물연령대', '건물규모', 'dealYear', 'dealMonth', 'dealDay']
     for col in cols_to_remove:
         deal_dict.pop(col, None)
-        
+    # 숫자 필드 value/unit 구조로 변환
+    for k in list(deal_dict.keys()):
+        if k in ['dealAmount', 'dealAmountNum', '보증금', 'deposit', '보증금액', '월세', 'monthlyRent', '월세액', 'rentFee', 'rentFeeNum']:
+            try:
+                v = float(deal_dict[k]) if deal_dict[k] is not None else None
+            except Exception:
+                continue
+            deal_dict[k] = as_value_unit(v, "만원")
+        elif k in ['평당가', '평당가_만원']:
+            try:
+                v = float(deal_dict[k]) if deal_dict[k] is not None else None
+            except Exception:
+                continue
+            deal_dict[k] = as_value_unit(v, "만원/평")
+        elif k in ['areaNum', '전용면적', 'excluUseAr', '계약면적', 'totalFloorAr', '연면적', 'YUA', 'plottageAr', 'landAr', 'dealArea', '계약면적_num', '전용면적_num', '연면적_num', '토지면적_num']:
+            try:
+                v = float(deal_dict[k]) if deal_dict[k] is not None else None
+            except Exception:
+                continue
+            deal_dict[k] = as_value_unit(v, "㎡")
+        elif k in ['건축년도', 'buildYear', 'buildYearNum']:
+            try:
+                v = float(deal_dict[k]) if deal_dict[k] is not None else None
+            except Exception:
+                continue
+            deal_dict[k] = as_value_unit(v, "년")
+        elif k in ['floor', 'floorNum']:
+            try:
+                v = float(deal_dict[k]) if deal_dict[k] is not None else None
+            except Exception:
+                continue
+            deal_dict[k] = as_value_unit(v, "층")
     return deal_dict
 
 def get_col_from_df(df, *col_names):
@@ -100,8 +140,8 @@ def analyze_commercial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     df['건물연령'] = current_year - df['건축년도_num']
 
     # --- Formatting helpers ---
-    def krw_10k(v): return format_unit(v, "만원")
-    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
+    def as_value_unit_per_pyeong(v): return as_value_unit(v, "만원/평")
 
     # --- 1. 종합 통계 (Overall Statistics) ---
     total_count = len(df)
@@ -111,49 +151,48 @@ def analyze_commercial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
 
     overall_stats = {
         "totalTransactionCount": total_count,
-        "totalTransactionValue": krw_10k(total_value),
+        "totalTransactionValue": as_value_unit_m(total_value),
         "transactionDistributionByPropertyType": type_distribution
     }
 
     # --- 2. 가격 수준 통계 (Price Level Statistics) ---
     price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
     price_stats = {
-        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
-        "overallMedianPrice": krw_10k(price_stats_raw['median']),
-        "overallHighestPrice": krw_10k(price_stats_raw['max']),
-        "overallLowestPrice": krw_10k(price_stats_raw['min'])
-    }
-    
-    price_stats["representativeDeals"] = {
-        "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
-        "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
-        "dealClosestToAverage": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['mean']).abs().idxmin()]),
-        "dealClosestToMedian": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['median']).abs().idxmin()])
+        "overallAveragePrice": as_value_unit_m(price_stats_raw['mean']),
+        "overallMedianPrice": as_value_unit_m(price_stats_raw['median']),
+        "overallHighestPrice": as_value_unit_m(price_stats_raw['max']),
+        "overallLowestPrice": as_value_unit_m(price_stats_raw['min']),
+        "representativeDeals": {
+            "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
+            "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
+            "dealClosestToAverage": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['mean']).abs().idxmin()]),
+            "dealClosestToMedian": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['median']).abs().idxmin()])
+        }
     }
 
     if property_type_col.notna().any():
         price_by_type_raw = df.groupby(property_type_col)['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
         price_stats["priceStatisticsByPropertyType"] = {
             prop_type: {
-                "averagePrice": krw_10k(stats['mean']),
-                "medianPrice": krw_10k(stats['median']),
-                "highestPrice": krw_10k(stats['max']),
-                "lowestPrice": krw_10k(stats['min']),
+                "averagePrice": as_value_unit_m(stats['mean']),
+                "medianPrice": as_value_unit_m(stats['median']),
+                "highestPrice": as_value_unit_m(stats['max']),
+                "lowestPrice": as_value_unit_m(stats['min']),
             } for prop_type, stats in price_by_type_raw.to_dict('index').items()
         }
 
     # --- 3. 단위 면적당 가격 통계 (Price per Area Statistics) ---
     price_per_area_stats_raw = df['평당가_만원'].agg(['mean', 'median'])
     price_per_area_stats = {
-        "overallAveragePricePerPyeong": krw_10k_per_pyeong(price_per_area_stats_raw['mean']),
-        "overallMedianPricePerPyeong": krw_10k_per_pyeong(price_per_area_stats_raw['median']),
+        "overallAveragePricePerPyeong": as_value_unit_per_pyeong(price_per_area_stats_raw['mean']),
+        "overallMedianPricePerPyeong": as_value_unit_per_pyeong(price_per_area_stats_raw['median']),
     }
     if property_type_col.notna().any():
         price_per_area_by_type_raw = df.groupby(property_type_col)['평당가_만원'].agg(['mean', 'median'])
         price_per_area_stats["pricePerPyeongStatisticsByPropertyType"] = {
             prop_type: {
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['mean']),
-                "medianPricePerPyeong": krw_10k_per_pyeong(stats['median']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['mean']),
+                "medianPricePerPyeong": as_value_unit_per_pyeong(stats['median']),
             } for prop_type, stats in price_per_area_by_type_raw.to_dict('index').items()
         }
 
@@ -173,11 +212,11 @@ def analyze_commercial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
         for dong, stats in location_summary_raw.to_dict('index').items():
             location_stats[dong] = {
                 "transactionCount": int(stats['Count']),
-                "averagePrice": krw_10k(stats['Mean_Price']),
-                "highestPrice": krw_10k(stats['Max_Price']),
-                "lowestPrice": krw_10k(stats['Min_Price']),
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
-                "medianPricePerPyeong": krw_10k_per_pyeong(stats['Median_PPA']),
+                "averagePrice": as_value_unit_m(stats['Mean_Price']),
+                "highestPrice": as_value_unit_m(stats['Max_Price']),
+                "lowestPrice": as_value_unit_m(stats['Min_Price']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['Mean_PPA']),
+                "medianPricePerPyeong": as_value_unit_per_pyeong(stats['Median_PPA']),
             }
 
     # --- 5. 건물 특성별 통계 (Building Characteristics Statistics) ---
@@ -194,8 +233,8 @@ def analyze_commercial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
         age_stats = {
             age_group: {
                 "transactionCount": int(stats['Count']),
-                "averagePrice": krw_10k(stats['Mean_Price']),
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+                "averagePrice": as_value_unit_m(stats['Mean_Price']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['Mean_PPA']),
             } for age_group, stats in age_summary_raw.to_dict('index').items()
         }
 
@@ -212,8 +251,8 @@ def analyze_commercial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
         scale_stats = {
             scale_group: {
                 "transactionCount": int(stats['Count']),
-                "averagePrice": krw_10k(stats['Mean_Price']),
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+                "averagePrice": as_value_unit_m(stats['Mean_Price']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['Mean_PPA']),
             } for scale_group, stats in scale_summary_raw.to_dict('index').items()
         }
     
@@ -309,24 +348,24 @@ def analyze_apartment_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     current_year = datetime.now().year
     df['건물연령'] = current_year - df['건축년도_num']
 
-    def krw_10k(v): return format_unit(v, "만원")
-    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
+    def as_value_unit_per_pyeong(v): return as_value_unit(v, "만원/평")
 
     # --- 1. 종합 통계 ---
     total_count = len(df)
     total_value = df['거래금액_num'].sum()
     overall_stats = {
         "totalTransactionCount": total_count,
-        "totalTransactionValue": krw_10k(total_value),
+        "totalTransactionValue": as_value_unit_m(total_value),
     }
 
     # --- 2. 가격 수준 통계 ---
     price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
     price_stats = {
-        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
-        "overallMedianPrice": krw_10k(price_stats_raw['median']),
-        "overallHighestPrice": krw_10k(price_stats_raw['max']),
-        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "overallAveragePrice": as_value_unit_m(price_stats_raw['mean']),
+        "overallMedianPrice": as_value_unit_m(price_stats_raw['median']),
+        "overallHighestPrice": as_value_unit_m(price_stats_raw['max']),
+        "overallLowestPrice": as_value_unit_m(price_stats_raw['min']),
         "representativeDeals": {
             "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
             "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
@@ -337,8 +376,8 @@ def analyze_apartment_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
 
     # --- 3. 단위 면적당 가격 통계 ---
     price_per_area_stats = {
-        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
-        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+        "overallAveragePricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].median()),
     }
 
     # --- 4. 단지별/입지별 통계 ---
@@ -358,10 +397,10 @@ def analyze_apartment_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
             for name, data in summary_raw.to_dict('index').items():
                 stats[name] = {
                     "transactionCount": int(data['Count']),
-                    "averagePrice": krw_10k(data['Mean_Price']),
-                    "medianPrice": krw_10k(data['Median_Price']),
-                    "averagePricePerPyeong": krw_10k_per_pyeong(data['Mean_PPA']),
-                    "medianPricePerPyeong": krw_10k_per_pyeong(data['Median_PPA']),
+                    "averagePrice": as_value_unit_m(data['Mean_Price']),
+                    "medianPrice": as_value_unit_m(data['Median_Price']),
+                    "averagePricePerPyeong": as_value_unit_per_pyeong(data['Mean_PPA']),
+                    "medianPricePerPyeong": as_value_unit_per_pyeong(data['Median_PPA']),
                 }
         return stats
 
@@ -451,7 +490,7 @@ def analyze_apartment_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
     df_jeonse = df[df['월세_num'] == 0].copy()
     df_wolse = df[df['월세_num'] > 0].copy()
 
-    def krw_10k(v): return format_unit(v, "만원")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
     
     def analyze_rent_type(df_rent_type, rent_type_name):
         if df_rent_type.empty:
@@ -461,10 +500,10 @@ def analyze_apartment_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         
         price_stats_raw = df_rent_type['보증금_num'].agg(['mean', 'median', 'max', 'min'])
         stats['depositPriceStatistics'] = {
-            "averageDeposit": krw_10k(price_stats_raw['mean']),
-            "medianDeposit": krw_10k(price_stats_raw['median']),
-            "highestDeposit": krw_10k(price_stats_raw['max']),
-            "lowestDeposit": krw_10k(price_stats_raw['min']),
+            "averageDeposit": as_value_unit_m(price_stats_raw['mean']),
+            "medianDeposit": as_value_unit_m(price_stats_raw['median']),
+            "highestDeposit": as_value_unit_m(price_stats_raw['max']),
+            "lowestDeposit": as_value_unit_m(price_stats_raw['min']),
             "representativeDeals": {
                 "highestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmax()]),
                 "lowestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmin()]),
@@ -473,8 +512,8 @@ def analyze_apartment_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         if rent_type_name == 'wolse': # 월세 통계 추가
             wolse_stats_raw = df_rent_type['월세_num'].agg(['mean', 'median', 'max', 'min'])
             stats['monthlyRentStatistics'] = {
-                "averageMonthlyRent": krw_10k(wolse_stats_raw['mean']),
-                "medianMonthlyRent": krw_10k(wolse_stats_raw['median']),
+                "averageMonthlyRent": as_value_unit_m(wolse_stats_raw['mean']),
+                "medianMonthlyRent": as_value_unit_m(wolse_stats_raw['median']),
             }
 
         complex_col = get_col_from_df(df_rent_type, '아파트', '단지명', 'aptName')
@@ -482,7 +521,7 @@ def analyze_apartment_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
             stats['statisticsByApartmentComplex'] = df_rent_type.groupby(complex_col).agg(
                 transactionCount=('보증금_num', 'size'),
                 averageDeposit=('보증금_num', 'mean')
-            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else krw_10k(x)).to_dict('index')
+            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else as_value_unit_m(x)).to_dict('index')
 
         return stats
 
@@ -552,24 +591,24 @@ def analyze_officetel_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     current_year = datetime.now().year
     df['건물연령'] = current_year - df['건축년도_num']
 
-    def krw_10k(v): return format_unit(v, "만원")
-    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
+    def as_value_unit_per_pyeong(v): return as_value_unit(v, "만원/평")
 
     # --- 1. 종합 통계 ---
     total_count = len(df)
     total_value = df['거래금액_num'].sum()
     overall_stats = {
         "totalTransactionCount": total_count,
-        "totalTransactionValue": krw_10k(total_value),
+        "totalTransactionValue": as_value_unit_m(total_value),
     }
 
     # --- 2. 가격 수준 통계 ---
     price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
     price_stats = {
-        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
-        "overallMedianPrice": krw_10k(price_stats_raw['median']),
-        "overallHighestPrice": krw_10k(price_stats_raw['max']),
-        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "overallAveragePrice": as_value_unit_m(price_stats_raw['mean']),
+        "overallMedianPrice": as_value_unit_m(price_stats_raw['median']),
+        "overallHighestPrice": as_value_unit_m(price_stats_raw['max']),
+        "overallLowestPrice": as_value_unit_m(price_stats_raw['min']),
         "representativeDeals": {
             "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
             "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
@@ -580,8 +619,8 @@ def analyze_officetel_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
 
     # --- 3. 단위 면적당 가격 통계 ---
     price_per_area_stats = {
-        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
-        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+        "overallAveragePricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].median()),
     }
 
     # --- 4. 단지별/입지별 통계 ---
@@ -600,10 +639,10 @@ def analyze_officetel_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
             for name, data in summary_raw.to_dict('index').items():
                 stats[name] = {
                     "transactionCount": int(data['Count']),
-                    "averagePrice": krw_10k(data['Mean_Price']),
-                    "medianPrice": krw_10k(data['Median_Price']),
-                    "averagePricePerPyeong": krw_10k_per_pyeong(data['Mean_PPA']),
-                    "medianPricePerPyeong": krw_10k_per_pyeong(data['Median_PPA']),
+                    "averagePrice": as_value_unit_m(data['Mean_Price']),
+                    "medianPrice": as_value_unit_m(data['Median_Price']),
+                    "averagePricePerPyeong": as_value_unit_per_pyeong(data['Mean_PPA']),
+                    "medianPricePerPyeong": as_value_unit_per_pyeong(data['Median_PPA']),
                 }
         return stats
 
@@ -666,17 +705,17 @@ def analyze_officetel_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         return {"error": "No valid transaction data after cleaning."}
     df_jeonse = df[df['월세_num'] == 0].copy()
     df_wolse = df[df['월세_num'] > 0].copy()
-    def krw_10k(v): return format_unit(v, "만원")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
     def analyze_rent_type(df_rent_type, rent_type_name):
         if df_rent_type.empty:
             return { "totalTransactionCount": 0 }
         stats = { "totalTransactionCount": len(df_rent_type) }
         price_stats_raw = df_rent_type['보증금_num'].agg(['mean', 'median', 'max', 'min'])
         stats['depositPriceStatistics'] = {
-            "averageDeposit": krw_10k(price_stats_raw['mean']),
-            "medianDeposit": krw_10k(price_stats_raw['median']),
-            "highestDeposit": krw_10k(price_stats_raw['max']),
-            "lowestDeposit": krw_10k(price_stats_raw['min']),
+            "averageDeposit": as_value_unit_m(price_stats_raw['mean']),
+            "medianDeposit": as_value_unit_m(price_stats_raw['median']),
+            "highestDeposit": as_value_unit_m(price_stats_raw['max']),
+            "lowestDeposit": as_value_unit_m(price_stats_raw['min']),
             "representativeDeals": {
                 "highestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmax()]),
                 "lowestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmin()]),
@@ -685,15 +724,15 @@ def analyze_officetel_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         if rent_type_name == 'wolse':
             wolse_stats_raw = df_rent_type['월세_num'].agg(['mean', 'median', 'max', 'min'])
             stats['monthlyRentStatistics'] = {
-                "averageMonthlyRent": krw_10k(wolse_stats_raw['mean']),
-                "medianMonthlyRent": krw_10k(wolse_stats_raw['median']),
+                "averageMonthlyRent": as_value_unit_m(wolse_stats_raw['mean']),
+                "medianMonthlyRent": as_value_unit_m(wolse_stats_raw['median']),
             }
         building_col = get_col_from_df(df_rent_type, '오피스텔', '오피스텔명', 'officetelName')
         if building_col.notna().any():
             stats['statisticsByOfficetelComplex'] = df_rent_type.groupby(building_col).agg(
                 transactionCount=('보증금_num', 'size'),
                 averageDeposit=('보증금_num', 'mean')
-            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else krw_10k(x)).to_dict('index')
+            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else as_value_unit_m(x)).to_dict('index')
         return stats
     jeonse_analysis = analyze_rent_type(df_jeonse, 'jeonse')
     wolse_analysis = analyze_rent_type(df_wolse, 'wolse')
@@ -755,22 +794,22 @@ def analyze_single_detached_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     df['평당가_만원'] = (df['거래금액_num'] / df['연면적_num']) * 3.305785
     current_year = datetime.now().year
     df['건물연령'] = current_year - df['건축년도_num']
-    def krw_10k(v): return format_unit(v, "만원")
-    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
+    def as_value_unit_per_pyeong(v): return as_value_unit(v, "만원/평")
     # --- 1. 종합 통계 ---
     total_count = len(df)
     total_value = df['거래금액_num'].sum()
     overall_stats = {
         "totalTransactionCount": total_count,
-        "totalTransactionValue": krw_10k(total_value),
+        "totalTransactionValue": as_value_unit_m(total_value),
     }
     # --- 2. 가격 수준 통계 ---
     price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
     price_stats = {
-        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
-        "overallMedianPrice": krw_10k(price_stats_raw['median']),
-        "overallHighestPrice": krw_10k(price_stats_raw['max']),
-        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "overallAveragePrice": as_value_unit_m(price_stats_raw['mean']),
+        "overallMedianPrice": as_value_unit_m(price_stats_raw['median']),
+        "overallHighestPrice": as_value_unit_m(price_stats_raw['max']),
+        "overallLowestPrice": as_value_unit_m(price_stats_raw['min']),
         "representativeDeals": {
             "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
             "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
@@ -780,8 +819,8 @@ def analyze_single_detached_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     }
     # --- 3. 단위 면적당 가격 통계 ---
     price_per_area_stats = {
-        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
-        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+        "overallAveragePricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].median()),
     }
     # --- 4. 건물명/동별 통계 ---
     building_col = get_col_from_df(df, '건물명', 'buildingName')
@@ -799,10 +838,10 @@ def analyze_single_detached_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
             for name, data in summary_raw.to_dict('index').items():
                 stats[name] = {
                     "transactionCount": int(data['Count']),
-                    "averagePrice": krw_10k(data['Mean_Price']),
-                    "medianPrice": krw_10k(data['Median_Price']),
-                    "averagePricePerPyeong": krw_10k_per_pyeong(data['Mean_PPA']),
-                    "medianPricePerPyeong": krw_10k_per_pyeong(data['Median_PPA']),
+                    "averagePrice": as_value_unit_m(data['Mean_Price']),
+                    "medianPrice": as_value_unit_m(data['Median_Price']),
+                    "averagePricePerPyeong": as_value_unit_per_pyeong(data['Mean_PPA']),
+                    "medianPricePerPyeong": as_value_unit_per_pyeong(data['Median_PPA']),
                 }
         return stats
     building_stats = get_grouped_stats(building_col)
@@ -863,17 +902,17 @@ def analyze_single_detached_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         return {"error": "No valid transaction data after cleaning."}
     df_jeonse = df[df['월세_num'] == 0].copy()
     df_wolse = df[df['월세_num'] > 0].copy()
-    def krw_10k(v): return format_unit(v, "만원")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
     def analyze_rent_type(df_rent_type, rent_type_name):
         if df_rent_type.empty:
             return { "totalTransactionCount": 0 }
         stats = { "totalTransactionCount": len(df_rent_type) }
         price_stats_raw = df_rent_type['보증금_num'].agg(['mean', 'median', 'max', 'min'])
         stats['depositPriceStatistics'] = {
-            "averageDeposit": krw_10k(price_stats_raw['mean']),
-            "medianDeposit": krw_10k(price_stats_raw['median']),
-            "highestDeposit": krw_10k(price_stats_raw['max']),
-            "lowestDeposit": krw_10k(price_stats_raw['min']),
+            "averageDeposit": as_value_unit_m(price_stats_raw['mean']),
+            "medianDeposit": as_value_unit_m(price_stats_raw['median']),
+            "highestDeposit": as_value_unit_m(price_stats_raw['max']),
+            "lowestDeposit": as_value_unit_m(price_stats_raw['min']),
             "representativeDeals": {
                 "highestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmax()]),
                 "lowestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmin()]),
@@ -882,15 +921,15 @@ def analyze_single_detached_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         if rent_type_name == 'wolse':
             wolse_stats_raw = df_rent_type['월세_num'].agg(['mean', 'median', 'max', 'min'])
             stats['monthlyRentStatistics'] = {
-                "averageMonthlyRent": krw_10k(wolse_stats_raw['mean']),
-                "medianMonthlyRent": krw_10k(wolse_stats_raw['median']),
+                "averageMonthlyRent": as_value_unit_m(wolse_stats_raw['mean']),
+                "medianMonthlyRent": as_value_unit_m(wolse_stats_raw['median']),
             }
         building_col = get_col_from_df(df_rent_type, '건물명', 'buildingName')
         if building_col.notna().any():
             stats['statisticsByBuilding'] = df_rent_type.groupby(building_col).agg(
                 transactionCount=('보증금_num', 'size'),
                 averageDeposit=('보증금_num', 'mean')
-            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else krw_10k(x)).to_dict('index')
+            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else as_value_unit_m(x)).to_dict('index')
         return stats
     jeonse_analysis = analyze_rent_type(df_jeonse, 'jeonse')
     wolse_analysis = analyze_rent_type(df_wolse, 'wolse')
@@ -951,22 +990,22 @@ def analyze_row_house_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     df['평당가_만원'] = (df['거래금액_num'] / df['전용면적_num']) * 3.305785
     current_year = datetime.now().year
     df['건물연령'] = current_year - df['건축년도_num']
-    def krw_10k(v): return format_unit(v, "만원")
-    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
+    def as_value_unit_per_pyeong(v): return as_value_unit(v, "만원/평")
     # --- 1. 종합 통계 ---
     total_count = len(df)
     total_value = df['거래금액_num'].sum()
     overall_stats = {
         "totalTransactionCount": total_count,
-        "totalTransactionValue": krw_10k(total_value),
+        "totalTransactionValue": as_value_unit_m(total_value),
     }
     # --- 2. 가격 수준 통계 ---
     price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
     price_stats = {
-        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
-        "overallMedianPrice": krw_10k(price_stats_raw['median']),
-        "overallHighestPrice": krw_10k(price_stats_raw['max']),
-        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "overallAveragePrice": as_value_unit_m(price_stats_raw['mean']),
+        "overallMedianPrice": as_value_unit_m(price_stats_raw['median']),
+        "overallHighestPrice": as_value_unit_m(price_stats_raw['max']),
+        "overallLowestPrice": as_value_unit_m(price_stats_raw['min']),
         "representativeDeals": {
             "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
             "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
@@ -976,8 +1015,8 @@ def analyze_row_house_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     }
     # --- 3. 단위 면적당 가격 통계 ---
     price_per_area_stats = {
-        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
-        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+        "overallAveragePricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].median()),
     }
     # --- 4. 연립다세대명/동별 통계 ---
     building_col = get_col_from_df(df, '연립다세대명', 'rowHouseName')
@@ -995,10 +1034,10 @@ def analyze_row_house_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
             for name, data in summary_raw.to_dict('index').items():
                 stats[name] = {
                     "transactionCount": int(data['Count']),
-                    "averagePrice": krw_10k(data['Mean_Price']),
-                    "medianPrice": krw_10k(data['Median_Price']),
-                    "averagePricePerPyeong": krw_10k_per_pyeong(data['Mean_PPA']),
-                    "medianPricePerPyeong": krw_10k_per_pyeong(data['Median_PPA']),
+                    "averagePrice": as_value_unit_m(data['Mean_Price']),
+                    "medianPrice": as_value_unit_m(data['Median_Price']),
+                    "averagePricePerPyeong": as_value_unit_per_pyeong(data['Mean_PPA']),
+                    "medianPricePerPyeong": as_value_unit_per_pyeong(data['Median_PPA']),
                 }
         return stats
     building_stats = get_grouped_stats(building_col)
@@ -1059,17 +1098,17 @@ def analyze_row_house_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         return {"error": "No valid transaction data after cleaning."}
     df_jeonse = df[df['월세_num'] == 0].copy()
     df_wolse = df[df['월세_num'] > 0].copy()
-    def krw_10k(v): return format_unit(v, "만원")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
     def analyze_rent_type(df_rent_type, rent_type_name):
         if df_rent_type.empty:
             return { "totalTransactionCount": 0 }
         stats = { "totalTransactionCount": len(df_rent_type) }
         price_stats_raw = df_rent_type['보증금_num'].agg(['mean', 'median', 'max', 'min'])
         stats['depositPriceStatistics'] = {
-            "averageDeposit": krw_10k(price_stats_raw['mean']),
-            "medianDeposit": krw_10k(price_stats_raw['median']),
-            "highestDeposit": krw_10k(price_stats_raw['max']),
-            "lowestDeposit": krw_10k(price_stats_raw['min']),
+            "averageDeposit": as_value_unit_m(price_stats_raw['mean']),
+            "medianDeposit": as_value_unit_m(price_stats_raw['median']),
+            "highestDeposit": as_value_unit_m(price_stats_raw['max']),
+            "lowestDeposit": as_value_unit_m(price_stats_raw['min']),
             "representativeDeals": {
                 "highestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmax()]),
                 "lowestDepositDeal": clean_deal_for_display(df_rent_type.loc[df_rent_type['보증금_num'].idxmin()]),
@@ -1078,15 +1117,15 @@ def analyze_row_house_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
         if rent_type_name == 'wolse':
             wolse_stats_raw = df_rent_type['월세_num'].agg(['mean', 'median', 'max', 'min'])
             stats['monthlyRentStatistics'] = {
-                "averageMonthlyRent": krw_10k(wolse_stats_raw['mean']),
-                "medianMonthlyRent": krw_10k(wolse_stats_raw['median']),
+                "averageMonthlyRent": as_value_unit_m(wolse_stats_raw['mean']),
+                "medianMonthlyRent": as_value_unit_m(wolse_stats_raw['median']),
             }
         building_col = get_col_from_df(df_rent_type, '연립다세대명', 'rowHouseName')
         if building_col.notna().any():
             stats['statisticsByRowHouseComplex'] = df_rent_type.groupby(building_col).agg(
                 transactionCount=('보증금_num', 'size'),
                 averageDeposit=('보증금_num', 'mean')
-            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else krw_10k(x)).to_dict('index')
+            ).apply(lambda x: x.astype(int) if x.name == 'transactionCount' else as_value_unit_m(x)).to_dict('index')
         return stats
     jeonse_analysis = analyze_rent_type(df_jeonse, 'jeonse')
     wolse_analysis = analyze_rent_type(df_wolse, 'wolse')
@@ -1146,8 +1185,8 @@ def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     df['평당가_만원'] = (df['거래금액_num'] / df['전용면적_num']) * 3.305785
     current_year = datetime.now().year
     df['건물연령'] = current_year - df['건축년도_num']
-    def krw_10k(v): return format_unit(v, "만원")
-    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
+    def as_value_unit_per_pyeong(v): return as_value_unit(v, "만원/평")
     # --- 1. 종합 통계 ---
     total_count = len(df)
     total_value = df['거래금액_num'].sum()
@@ -1155,16 +1194,16 @@ def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     use_distribution = use_col.value_counts().to_dict() if use_col.notna().any() else {}
     overall_stats = {
         "totalTransactionCount": total_count,
-        "totalTransactionValue": krw_10k(total_value),
+        "totalTransactionValue": as_value_unit_m(total_value),
         "transactionDistributionByUseType": use_distribution
     }
     # --- 2. 가격 수준 통계 ---
     price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
     price_stats = {
-        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
-        "overallMedianPrice": krw_10k(price_stats_raw['median']),
-        "overallHighestPrice": krw_10k(price_stats_raw['max']),
-        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "overallAveragePrice": as_value_unit_m(price_stats_raw['mean']),
+        "overallMedianPrice": as_value_unit_m(price_stats_raw['median']),
+        "overallHighestPrice": as_value_unit_m(price_stats_raw['max']),
+        "overallLowestPrice": as_value_unit_m(price_stats_raw['min']),
         "representativeDeals": {
             "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
             "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
@@ -1174,24 +1213,24 @@ def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     }
     # --- 3. 단위 면적당 가격 통계 ---
     price_per_area_stats = {
-        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
-        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+        "overallAveragePricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].median()),
     }
     if use_col.notna().any():
         price_by_use_raw = df.groupby(use_col)['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
         price_stats["priceStatisticsByUseType"] = {
             use: {
-                "averagePrice": krw_10k(stats['mean']),
-                "medianPrice": krw_10k(stats['median']),
-                "highestPrice": krw_10k(stats['max']),
-                "lowestPrice": krw_10k(stats['min']),
+                "averagePrice": as_value_unit_m(stats['mean']),
+                "medianPrice": as_value_unit_m(stats['median']),
+                "highestPrice": as_value_unit_m(stats['max']),
+                "lowestPrice": as_value_unit_m(stats['min']),
             } for use, stats in price_by_use_raw.to_dict('index').items()
         }
         price_per_area_by_use_raw = df.groupby(use_col)['평당가_만원'].agg(['mean', 'median'])
         price_per_area_stats["pricePerPyeongStatisticsByUseType"] = {
             use: {
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['mean']),
-                "medianPricePerPyeong": krw_10k_per_pyeong(stats['median']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['mean']),
+                "medianPricePerPyeong": as_value_unit_per_pyeong(stats['median']),
             } for use, stats in price_per_area_by_use_raw.to_dict('index').items()
         }
     # --- 4. 입지별 통계 (동별) ---
@@ -1209,11 +1248,11 @@ def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
         for dong, stats in location_summary_raw.to_dict('index').items():
             location_stats[dong] = {
                 "transactionCount": int(stats['Count']),
-                "averagePrice": krw_10k(stats['Mean_Price']),
-                "highestPrice": krw_10k(stats['Max_Price']),
-                "lowestPrice": krw_10k(stats['Min_Price']),
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
-                "medianPricePerPyeong": krw_10k_per_pyeong(stats['Median_PPA']),
+                "averagePrice": as_value_unit_m(stats['Mean_Price']),
+                "highestPrice": as_value_unit_m(stats['Max_Price']),
+                "lowestPrice": as_value_unit_m(stats['Min_Price']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['Mean_PPA']),
+                "medianPricePerPyeong": as_value_unit_per_pyeong(stats['Median_PPA']),
             }
     # --- 5. 건물 특성별 통계 (연령/규모) ---
     age_bins = [0, 6, 11, 21, np.inf]
@@ -1229,8 +1268,8 @@ def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
         age_stats = {
             age_group: {
                 "transactionCount": int(stats['Count']),
-                "averagePrice": krw_10k(stats['Mean_Price']),
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+                "averagePrice": as_value_unit_m(stats['Mean_Price']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['Mean_PPA']),
             } for age_group, stats in age_summary_raw.to_dict('index').items()
         }
     area_bins = [0, 100, 300, 1000, np.inf]
@@ -1246,8 +1285,8 @@ def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
         scale_stats = {
             scale_group: {
                 "transactionCount": int(stats['Count']),
-                "averagePrice": krw_10k(stats['Mean_Price']),
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+                "averagePrice": as_value_unit_m(stats['Mean_Price']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['Mean_PPA']),
             } for scale_group, stats in scale_summary_raw.to_dict('index').items()
         }
     building_stats = {
@@ -1307,8 +1346,8 @@ def analyze_land_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty:
         return {"error": "No valid transaction data after cleaning."}
     df['평당가_만원'] = (df['거래금액_num'] / df['토지면적_num']) * 3.305785
-    def krw_10k(v): return format_unit(v, "만원")
-    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    def as_value_unit_m(v): return as_value_unit(v, "만원")
+    def as_value_unit_per_pyeong(v): return as_value_unit(v, "만원/평")
     # --- 1. 종합 통계 ---
     total_count = len(df)
     total_value = df['거래금액_num'].sum()
@@ -1316,16 +1355,16 @@ def analyze_land_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     type_distribution = land_type_col.value_counts().to_dict() if land_type_col.notna().any() else {}
     overall_stats = {
         "totalTransactionCount": total_count,
-        "totalTransactionValue": krw_10k(total_value),
+        "totalTransactionValue": as_value_unit_m(total_value),
         "transactionDistributionByLandType": type_distribution
     }
     # --- 2. 가격 수준 통계 ---
     price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
     price_stats = {
-        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
-        "overallMedianPrice": krw_10k(price_stats_raw['median']),
-        "overallHighestPrice": krw_10k(price_stats_raw['max']),
-        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "overallAveragePrice": as_value_unit_m(price_stats_raw['mean']),
+        "overallMedianPrice": as_value_unit_m(price_stats_raw['median']),
+        "overallHighestPrice": as_value_unit_m(price_stats_raw['max']),
+        "overallLowestPrice": as_value_unit_m(price_stats_raw['min']),
         "representativeDeals": {
             "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
             "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
@@ -1335,24 +1374,24 @@ def analyze_land_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     }
     # --- 3. 단위 면적당 가격 통계 ---
     price_per_area_stats = {
-        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
-        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+        "overallAveragePricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": as_value_unit_per_pyeong(df['평당가_만원'].median()),
     }
     if land_type_col.notna().any():
         price_by_type_raw = df.groupby(land_type_col)['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
         price_stats["priceStatisticsByLandType"] = {
             land_type: {
-                "averagePrice": krw_10k(stats['mean']),
-                "medianPrice": krw_10k(stats['median']),
-                "highestPrice": krw_10k(stats['max']),
-                "lowestPrice": krw_10k(stats['min']),
+                "averagePrice": as_value_unit_m(stats['mean']),
+                "medianPrice": as_value_unit_m(stats['median']),
+                "highestPrice": as_value_unit_m(stats['max']),
+                "lowestPrice": as_value_unit_m(stats['min']),
             } for land_type, stats in price_by_type_raw.to_dict('index').items()
         }
         price_per_area_by_type_raw = df.groupby(land_type_col)['평당가_만원'].agg(['mean', 'median'])
         price_per_area_stats["pricePerPyeongStatisticsByLandType"] = {
             land_type: {
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['mean']),
-                "medianPricePerPyeong": krw_10k_per_pyeong(stats['median']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['mean']),
+                "medianPricePerPyeong": as_value_unit_per_pyeong(stats['median']),
             } for land_type, stats in price_per_area_by_type_raw.to_dict('index').items()
         }
     # --- 4. 입지별 통계 (동별) ---
@@ -1370,11 +1409,11 @@ def analyze_land_property_data(df: pd.DataFrame) -> Dict[str, Any]:
         for dong, stats in location_summary_raw.to_dict('index').items():
             location_stats[dong] = {
                 "transactionCount": int(stats['Count']),
-                "averagePrice": krw_10k(stats['Mean_Price']),
-                "highestPrice": krw_10k(stats['Max_Price']),
-                "lowestPrice": krw_10k(stats['Min_Price']),
-                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
-                "medianPricePerPyeong": krw_10k_per_pyeong(stats['Median_PPA']),
+                "averagePrice": as_value_unit_m(stats['Mean_Price']),
+                "highestPrice": as_value_unit_m(stats['Max_Price']),
+                "lowestPrice": as_value_unit_m(stats['Min_Price']),
+                "averagePricePerPyeong": as_value_unit_per_pyeong(stats['Mean_PPA']),
+                "medianPricePerPyeong": as_value_unit_per_pyeong(stats['Median_PPA']),
             }
     return {
         "overallStatistics": overall_stats,

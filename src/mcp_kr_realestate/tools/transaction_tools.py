@@ -16,7 +16,8 @@ from pathlib import Path
 import pandas as pd
 import xml.etree.ElementTree as ET
 import requests
-from typing import Any, Optional, Callable
+from typing import Any, Callable, Optional
+import os
 
 from ..server import mcp, ctx, RealEstateContext
 from mcp.types import TextContent
@@ -96,28 +97,49 @@ def _fetch_and_save_as_json(
         logger.error(f"데이터 처리 중 알 수 없는 오류: {e}", exc_info=True)
         return json.dumps({"error": f"An unknown error occurred: {e}"})
 
+def _load_region_codes_json(json_path: Optional[str] = None) -> list:
+    """
+    region_codes.json 파일을 로드하거나, 없으면 DataFrame에서 생성 후 저장
+    """
+    if json_path is None:
+        json_path = os.path.join(os.path.dirname(__file__), '../utils/data/region_codes.json')
+        json_path = os.path.abspath(json_path)
+    if os.path.exists(json_path):
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    # 없으면 DataFrame에서 생성 후 저장
+    df = get_region_code_df()
+    records = df[['법정동코드', '시도명', '시군구명', '읍면동명']].to_dict(orient='records')
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(records, f, ensure_ascii=False)
+    return records
+
 @mcp.tool(
     name="get_region_codes",
-    description="""입력한 지역명(region_name)으로 법정동 코드 목록을 반환합니다.
-- `region_name`: 구/동/시 등 지역 이름의 일부를 입력합니다.
-""",
+    description="""입력한 지역명(region_name)으로 법정동 코드 목록을 반환합니다.\n- `region_name`: 구/동/시 등 지역 이름의 일부를 입력합니다.\n검색 결과가 많을 경우 미리보기(10건)만 반환하며, 전체 목록이 필요하면 별도 파일로 저장됩니다.""",
     tags={"부동산", "실거래가", "지역코드"}
 )
 def get_region_codes(region_name: str) -> TextContent:
     """
-    입력한 지역명(region_name)으로 법정동 코드 목록을 반환합니다.
+    입력한 지역명(region_name)으로 법정동 코드 목록을 반환합니다. (10건 초과시 미리보기/요약)
     """
     try:
-        df = get_region_code_df()
-        mask = (
-            df['시도명'].str.contains(region_name, case=False, na=False) |
-            df['시군구명'].str.contains(region_name, case=False, na=False) |
-            df['읍면동명'].str.contains(region_name, case=False, na=False)
-        )
-        filtered = df[mask].copy()
-        if filtered.empty:
+        records = _load_region_codes_json()
+        filtered = [r for r in records if (
+            (region_name in (r.get('시도명') or '')) or
+            (region_name in (r.get('시군구명') or '')) or
+            (region_name in (r.get('읍면동명') or ''))
+        )]
+        total_count = len(filtered)
+        preview = filtered[:10]
+        if total_count == 0:
             return TextContent(type="text", text=json.dumps({"error": f"'{region_name}'(으)로 일치하는 법정동 코드가 없습니다."}, ensure_ascii=False))
-        result = filtered[['법정동코드', '시도명', '시군구명', '읍면동명']].to_dict(orient='records')
+        result = {
+            "total_count": total_count,
+            "preview": preview,
+        }
+        if total_count > 10:
+            result["message"] = f"검색 결과가 {total_count}건입니다. 미리보기 10건만 표시합니다. 전체 목록이 필요하면 '상세코드'로 별도 요청하세요."
         return TextContent(type="text", text=json.dumps(result, ensure_ascii=False))
     except Exception as e:
         return TextContent(type="text", text=json.dumps({"error": f"법정동 코드 조회 중 오류: {e}"}, ensure_ascii=False))
