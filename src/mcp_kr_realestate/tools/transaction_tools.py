@@ -153,7 +153,19 @@ def get_commercial_property_trade_data(region_code: str, year_month: str, ctx: O
     tags={"부동산", "실거래가", "단독다가구", "매매"}
 )
 def get_single_detached_house_trade_data(region_code: str, year_month: str) -> TextContent:
-    result = _fetch_and_save_as_json(api_get_sh_trade, "SH_TRADE", region_code, year_month)
+    result = _fetch_and_save_as_json(api_get_sh_trade, "SINGLE_DETACHED_HOUSE_TRADE", region_code, year_month)
+    return TextContent(type="text", text=result)
+
+@mcp.tool(
+    name="get_single_detached_house_rent_data",
+    description="""단독/다가구 전월세 실거래가 데이터를 조회합니다.
+- `region_code`: `get_region_codes`로 얻은 5자리 지역 코드를 사용합니다.
+- `year_month`: 'YYYYMM' 형식의 년월을 사용합니다.
+""",
+    tags={"부동산", "실거래가", "단독다가구", "전월세"}
+)
+def get_single_detached_house_rent_data(region_code: str, year_month: str) -> TextContent:
+    result = _fetch_and_save_as_json(api_get_sh_rent, "SINGLE_DETACHED_HOUSE_RENT", region_code, year_month)
     return TextContent(type="text", text=result)
 
 @mcp.tool(
@@ -165,7 +177,19 @@ def get_single_detached_house_trade_data(region_code: str, year_month: str) -> T
     tags={"부동산", "실거래가", "연립다세대", "매매"}
 )
 def get_row_house_trade_data(region_code: str, year_month: str) -> TextContent:
-    result = _fetch_and_save_as_json(api_get_rh_trade, "RH_TRADE", region_code, year_month)
+    result = _fetch_and_save_as_json(api_get_rh_trade, "ROW_HOUSE_TRADE", region_code, year_month)
+    return TextContent(type="text", text=result)
+
+@mcp.tool(
+    name="get_row_house_rent_data",
+    description="""연립/다세대 전월세 실거래가 데이터를 조회합니다.
+- `region_code`: `get_region_codes`로 얻은 5자리 지역 코드를 사용합니다.
+- `year_month`: 'YYYYMM' 형식의 년월을 사용합니다.
+""",
+    tags={"부동산", "실거래가", "연립다세대", "전월세"}
+)
+def get_row_house_rent_data(region_code: str, year_month: str) -> TextContent:
+    result = _fetch_and_save_as_json(api_get_rh_rent, "ROW_HOUSE_RENT", region_code, year_month)
     return TextContent(type="text", text=result)
 
 @mcp.tool(
@@ -204,32 +228,6 @@ def get_apt_trade_data(region_code: str, year_month: str) -> TextContent:
 )
 def get_apt_rent_data(region_code: str, year_month: str) -> TextContent:
     result = _fetch_and_save_as_json(api_get_apt_rent, "APT_RENT", region_code, year_month)
-    return TextContent(type="text", text=result)
-
-# 단독/다가구 전월세 조회
-@mcp.tool(
-    name="get_sh_rent_data",
-    description="""단독/다가구 전월세 실거래가 데이터를 조회합니다.
-- `region_code`: `get_region_codes`로 얻은 5자리 지역 코드를 사용합니다.
-- `year_month`: 'YYYYMM' 형식의 년월을 사용합니다.
-""",
-    tags={"부동산", "실거래가", "단독다가구", "전월세"}
-)
-def get_sh_rent_data(region_code: str, year_month: str) -> TextContent:
-    result = _fetch_and_save_as_json(api_get_sh_rent, "SH_RENT", region_code, year_month)
-    return TextContent(type="text", text=result)
-
-# 연립/다세대 전월세 조회
-@mcp.tool(
-    name="get_rh_rent_data",
-    description="""연립/다세대 전월세 실거래가 데이터를 조회합니다.
-- `region_code`: `get_region_codes`로 얻은 5자리 지역 코드를 사용합니다.
-- `year_month`: 'YYYYMM' 형식의 년월을 사용합니다.
-""",
-    tags={"부동산", "실거래가", "연립다세대", "전월세"}
-)
-def get_rh_rent_data(region_code: str, year_month: str) -> TextContent:
-    result = _fetch_and_save_as_json(api_get_rh_rent, "RH_RENT", region_code, year_month)
     return TextContent(type="text", text=result)
 
 # 오피스텔 매매 조회
