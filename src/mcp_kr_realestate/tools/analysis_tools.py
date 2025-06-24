@@ -10,10 +10,12 @@ from pathlib import Path
 import json
 from typing import Any, Optional, Dict
 from datetime import datetime
+import os
 
 from mcp_kr_realestate.server import mcp
 from mcp_kr_realestate.utils.ctx_helper import with_context
 from mcp.types import TextContent
+from mcp_kr_realestate.apis.reb_api import get_reb_stat_list, get_reb_stat_items, get_reb_stat_data, get_reb_stat_list_all, get_reb_stat_items_all, get_reb_stat_data_all, cache_stat_list_full, cache_stat_list
 
 logger = logging.getLogger("mcp-kr-realestate")
 
@@ -1453,3 +1455,157 @@ def analyze_land_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent
             return json.dumps({"error": f"분석 중 오류가 발생했습니다: {str(e)}"}, ensure_ascii=False)
     result = with_context(ctx, "analyze_land_trade", call)
     return TextContent(type="text", text=result)
+
+@mcp.tool(
+    name="get_reb_stat_list",
+    description="""부동산 통계 서비스의 통계표 목록을 조회합니다.\n- 반드시 이 도구로 STATBL_ID(통계표ID)를 먼저 확인한 뒤, 세부항목/데이터 조회 도구를 사용하세요.\n- params 예시: {\"STATBL_ID\": \"...\", \"pIndex\": 1, \"pSize\": 100}\n""",
+    tags={"부동산", "통계", "REB", "통계표"}
+)
+def get_reb_stat_list_tool(params: dict) -> TextContent:
+    try:
+        data = get_reb_stat_list(params)
+        return TextContent(type="text", text=json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        return TextContent(type="text", text=json.dumps({"error": str(e)}, ensure_ascii=False))
+
+@mcp.tool(
+    name="get_reb_stat_items",
+    description="""특정 통계표의 세부항목 목록을 조회합니다.\n- 반드시 'get_reb_stat_list' 도구로 STATBL_ID를 먼저 확인하세요.\n- params 예시: {\"STATBL_ID\": \"...\", \"pIndex\": 1, \"pSize\": 100}\n""",
+    tags={"부동산", "통계", "REB", "항목"}
+)
+def get_reb_stat_items_tool(params: dict) -> TextContent:
+    try:
+        data = get_reb_stat_items(params)
+        return TextContent(type="text", text=json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        return TextContent(type="text", text=json.dumps({"error": str(e)}, ensure_ascii=False))
+
+@mcp.tool(
+    name="get_reb_stat_data",
+    description="""특정 통계표의 통계 데이터를 조회합니다.\n- 반드시 'get_reb_stat_list' 도구로 STATBL_ID, DTACYCLE_CD(주기코드)를 먼저 확인하세요.\n- params 예시: {\"STATBL_ID\": \"...\", \"DTACYCLE_CD\": \"...\", \"pIndex\": 1, \"pSize\": 100, ...}\n""",
+    tags={"부동산", "통계", "REB", "데이터"}
+)
+def get_reb_stat_data_tool(params: dict) -> TextContent:
+    try:
+        data = get_reb_stat_data(params)
+        return TextContent(type="text", text=json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        return TextContent(type="text", text=json.dumps({"error": str(e)}, ensure_ascii=False))
+
+@mcp.tool(
+    name="get_reb_stat_list_full",
+    description="""Collects and caches the full list of REB statistical tables, and returns the cache file path. Use this path in analysis/search tools.\n이 도구는 전체 데이터를 캐싱하고, 캐시 파일 경로만 반환합니다. 분석/검색 도구에서 이 경로를 사용하세요.""",
+    tags={"realestate", "statistics", "REB", "stat_table"}
+)
+def get_reb_stat_list_full(params: dict) -> TextContent:
+    # 실제 데이터 캐싱 및 경로 반환
+    path = cache_stat_list_full(params)
+    return TextContent(type="text", text=path)
+
+@mcp.tool(
+    name="get_reb_stat_list",
+    description="""Collects and caches a list of REB statistical tables (with optional filters), and returns the cache file path. Use this path in analysis/search tools.\n이 도구는 전체 데이터를 캐싱하고, 캐시 파일 경로만 반환합니다. 분석/검색 도구에서 이 경로를 사용하세요.""",
+    tags={"realestate", "statistics", "REB", "stat_table"}
+)
+def get_reb_stat_list(params: dict) -> TextContent:
+    path = cache_stat_list(params)
+    return TextContent(type="text", text=path)
+
+@mcp.tool(
+    name="analyze_reb_stat_items",
+    description="""Analyzes REB statistical items from a cache file. If the file does not exist, it will be automatically created.\nYou can filter by any column using the 'filter' parameter.\nResults are sorted by the most recent order.\nResult should be visualized using a chart or table.\nfilter example: {\"ITM_NM\": \"지수\", \"UI_NM\": \"지수\"}\nBy default, the preview shows the latest 5 items.""",
+    tags={"realestate", "statistics", "REB", "item"}
+)
+def analyze_reb_stat_items(params: dict) -> TextContent:
+    cache_path = params.get("cache_path")
+    filter = params.get("filter", {})
+    if not cache_path or not os.path.exists(cache_path):
+        # 자동 캐싱
+        from mcp_kr_realestate.apis.reb_api import cache_stat_list_full
+        cache_path = cache_stat_list_full({})
+    import pandas as pd
+    import json
+    with open(cache_path, "r", encoding="utf-8") as f:
+        all_items = json.load(f)
+    df = pd.DataFrame(all_items)
+    if "V_ORDER" in df.columns:
+        df = df.sort_values(by="V_ORDER", ascending=False)
+    for k, v in filter.items():
+        if k in df.columns:
+            df = df[df[k] == v]
+    preview = df.head(5).to_dict(orient="records")
+    summary = {
+        "total_count": len(df),
+        "item_names": df["ITM_NM"].unique().tolist() if "ITM_NM" in df.columns else [],
+        "unit_names": df["UI_NM"].unique().tolist() if "UI_NM" in df.columns else [],
+        "preview": preview
+    }
+    return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False))
+
+@mcp.tool(
+    name="analyze_reb_stat_data",
+    description="""Analyzes REB statistical data from a cache file. If the file does not exist, it will be automatically created.\nYou can filter by any column using the 'filter' parameter.\nResults are sorted by the most recent time.\nResult should be visualized using a chart or table.\nfilter example: {\"CLS_NM\": \"서울특별시\", \"ITM_NM\": \"지수\", \"WRTTIME_IDTFR_ID\": \"2025-05\"}\nBy default, the preview shows the latest 5 records.""",
+    tags={"realestate", "statistics", "REB", "data"}
+)
+def analyze_reb_stat_data(params: dict) -> TextContent:
+    cache_path = params.get("cache_path")
+    filter = params.get("filter", {})
+    if not cache_path or not os.path.exists(cache_path):
+        from mcp_kr_realestate.apis.reb_api import cache_stat_list_full
+        cache_path = cache_stat_list_full({})
+    import pandas as pd
+    import json
+    with open(cache_path, "r", encoding="utf-8") as f:
+        all_items = json.load(f)
+    df = pd.DataFrame(all_items)
+    if "WRTTIME_IDTFR_ID" in df.columns:
+        df = df.sort_values(by="WRTTIME_IDTFR_ID", ascending=False)
+    for k, v in filter.items():
+        if k in df.columns:
+            df = df[df[k] == v]
+    preview = df.head(5).to_dict(orient="records")
+    stats = {}
+    if "DTA_VAL" in df.columns:
+        stats = df["DTA_VAL"].describe().to_dict()
+    summary = {
+        "total_count": len(df),
+        "time_range": [df["WRTTIME_IDTFR_ID"].min(), df["WRTTIME_IDTFR_ID"].max()] if "WRTTIME_IDTFR_ID" in df.columns else [],
+        "item_names": df["ITM_NM"].unique().tolist() if "ITM_NM" in df.columns else [],
+        "region_names": df["CLS_NM"].unique().tolist() if "CLS_NM" in df.columns else [],
+        "value_stats": stats,
+        "preview": preview
+    }
+    return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False))
+
+@mcp.tool(
+    name="search_reb_stat_tables",
+    description="""Searches the cached REB statistical table list by keyword (e.g., STATBL_NM, DTACYCLE_NM).\nUse this tool to find the STATBL_ID you want, then use it in the item/data analysis tools.\n\nExample workflow:\n1. search_reb_stat_tables({"filter": {"STATBL_NM": "가격지수"}})\n2. analyze_reb_stat_items({"cache_path": ..., "STATBL_ID": ...})\n3. analyze_reb_stat_data({"cache_path": ..., "STATBL_ID": ..., "filter": {...}})\n\nReturns only summary info (STATBL_ID, STATBL_NM, DTACYCLE_NM) for up to 10 results.""",
+    tags={"realestate", "statistics", "REB", "stat_table", "search"}
+)
+def search_reb_stat_tables(params: dict) -> TextContent:
+    import os
+    import pandas as pd
+    import json
+    cache_path = params.get("cache_path", "/tmp/reb_stats_cache/stat_list_full.json")
+    filter = params.get("filter", {})
+    if not os.path.exists(cache_path):
+        from mcp_kr_realestate.apis.reb_api import cache_stat_list_full
+        cache_path = cache_stat_list_full({})
+    with open(cache_path, "r", encoding="utf-8") as f:
+        stats = json.load(f)
+    df = pd.DataFrame(stats)
+    for k, v in filter.items():
+        if k in df.columns:
+            df = df[df[k].astype(str).str.contains(str(v), na=False)]
+    preview = df[["STATBL_ID", "STATBL_NM", "DTACYCLE_NM"]].head(10).to_dict(orient="records")
+    summary = {
+        "total_count": len(df),
+        "preview": preview
+    }
+    return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False))
+
+# ... 기존 analyze_reb_stat_items ...
+analyze_reb_stat_items.__doc__ = """Step 2: Analyze the items of a specific REB statistical table.\n\nWorkflow example:\n1. search_reb_stat_tables({\"filter\": {\"STATBL_NM\": \"가격지수\"}})\n2. analyze_reb_stat_items({\"cache_path\": ..., \"STATBL_ID\": ...})\n3. analyze_reb_stat_data({\"cache_path\": ..., \"STATBL_ID\": ..., \"filter\": {...}})\n\nInput the cache_path and STATBL_ID you found in step 1.\nYou can filter by any column using the 'filter' parameter.\nResults are sorted by the most recent order.\nResult should be visualized using a chart or table.\nBy default, the preview shows the latest 5 items."""
+
+# ... 기존 analyze_reb_stat_data ...
+analyze_reb_stat_data.__doc__ = """Step 3: Analyze the data of a specific REB statistical table.\n\nWorkflow example:\n1. search_reb_stat_tables({\"filter\": {\"STATBL_NM\": \"가격지수\"}})\n2. analyze_reb_stat_items({\"cache_path\": ..., \"STATBL_ID\": ...})\n3. analyze_reb_stat_data({\"cache_path\": ..., \"STATBL_ID\": ..., \"filter\": {...}})\n\nInput the cache_path and STATBL_ID you found in step 1.\nYou can filter by any column using the 'filter' parameter.\nResults are sorted by the most recent time.\nResult should be visualized using a chart or table.\nBy default, the preview shows the latest 5 records."""
