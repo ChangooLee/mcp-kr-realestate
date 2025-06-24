@@ -1128,4 +1128,289 @@ def analyze_row_house_rent(file_path: str, ctx: Optional[Any] = None) -> TextCon
             logger.error(f"연립다세대 전월세 데이터 분석 중 오류 발생: {e}", exc_info=True)
             return json.dumps({"error": f"분석 중 오류가 발생했습니다: {str(e)}"}, ensure_ascii=False)
     result = with_context(ctx, "analyze_row_house_rent", call)
+    return TextContent(type="text", text=result)
+
+def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
+    """DataFrame을 받아 공장/창고 등 산업용 부동산 통계를 분석하고 영문 key와 단위가 포함된 값으로 JSON을 반환합니다."""
+    if df.empty:
+        return {"error": "No data to analyze."}
+    # --- 데이터 전처리 ---
+    df['거래금액_num'] = to_numeric(get_col_from_df(df, '거래금액', 'dealAmount', 'dealAmountNum'))
+    # Fix: include 'buildingAr' as a fallback for area
+    df['전용면적_num'] = to_numeric(get_col_from_df(df, '전용면적', 'area', 'excluUseAr', 'buildingAr', 'areaNum'))
+    df['건축년도_num'] = to_numeric(get_col_from_df(df, '건축년도', 'buildYear', 'buildYearNum'))
+    df.dropna(subset=['거래금액_num', '전용면적_num'], inplace=True)
+    df = df[df['전용면적_num'] > 0].copy()
+    if df.empty:
+        return {"error": "No valid transaction data after cleaning."}
+    df['평당가_만원'] = (df['거래금액_num'] / df['전용면적_num']) * 3.305785
+    current_year = datetime.now().year
+    df['건물연령'] = current_year - df['건축년도_num']
+    def krw_10k(v): return format_unit(v, "만원")
+    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    # --- 1. 종합 통계 ---
+    total_count = len(df)
+    total_value = df['거래금액_num'].sum()
+    use_col = get_col_from_df(df, '용도', '유형', 'buildingUse')
+    use_distribution = use_col.value_counts().to_dict() if use_col.notna().any() else {}
+    overall_stats = {
+        "totalTransactionCount": total_count,
+        "totalTransactionValue": krw_10k(total_value),
+        "transactionDistributionByUseType": use_distribution
+    }
+    # --- 2. 가격 수준 통계 ---
+    price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
+    price_stats = {
+        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
+        "overallMedianPrice": krw_10k(price_stats_raw['median']),
+        "overallHighestPrice": krw_10k(price_stats_raw['max']),
+        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "representativeDeals": {
+            "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
+            "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
+            "dealClosestToAverage": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['mean']).abs().idxmin()]),
+            "dealClosestToMedian": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['median']).abs().idxmin()])
+        }
+    }
+    # --- 3. 단위 면적당 가격 통계 ---
+    price_per_area_stats = {
+        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+    }
+    if use_col.notna().any():
+        price_by_use_raw = df.groupby(use_col)['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
+        price_stats["priceStatisticsByUseType"] = {
+            use: {
+                "averagePrice": krw_10k(stats['mean']),
+                "medianPrice": krw_10k(stats['median']),
+                "highestPrice": krw_10k(stats['max']),
+                "lowestPrice": krw_10k(stats['min']),
+            } for use, stats in price_by_use_raw.to_dict('index').items()
+        }
+        price_per_area_by_use_raw = df.groupby(use_col)['평당가_만원'].agg(['mean', 'median'])
+        price_per_area_stats["pricePerPyeongStatisticsByUseType"] = {
+            use: {
+                "averagePricePerPyeong": krw_10k_per_pyeong(stats['mean']),
+                "medianPricePerPyeong": krw_10k_per_pyeong(stats['median']),
+            } for use, stats in price_per_area_by_use_raw.to_dict('index').items()
+        }
+    # --- 4. 입지별 통계 (동별) ---
+    location_col = get_col_from_df(df, '법정동', 'umdNm', 'dong')
+    location_stats = {}
+    if location_col.notna().any():
+        location_summary_raw = df.groupby(location_col).agg(
+            Count=('거래금액_num', 'size'),
+            Mean_Price=('거래금액_num', 'mean'),
+            Max_Price=('거래금액_num', 'max'),
+            Min_Price=('거래금액_num', 'min'),
+            Mean_PPA=('평당가_만원', 'mean'),
+            Median_PPA=('평당가_만원', 'median')
+        )
+        for dong, stats in location_summary_raw.to_dict('index').items():
+            location_stats[dong] = {
+                "transactionCount": int(stats['Count']),
+                "averagePrice": krw_10k(stats['Mean_Price']),
+                "highestPrice": krw_10k(stats['Max_Price']),
+                "lowestPrice": krw_10k(stats['Min_Price']),
+                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+                "medianPricePerPyeong": krw_10k_per_pyeong(stats['Median_PPA']),
+            }
+    # --- 5. 건물 특성별 통계 (연령/규모) ---
+    age_bins = [0, 6, 11, 21, np.inf]
+    age_labels = ['5 years or newer', '6-10 years', '11-20 years', 'over 20 years']
+    df['건물연령대'] = pd.cut(df['건물연령'], bins=age_bins, labels=age_labels, right=False)
+    age_stats = {}
+    if not df['건물연령대'].isnull().all():
+        age_summary_raw = df.groupby('건물연령대', observed=True).agg(
+            Count=('거래금액_num', 'size'),
+            Mean_Price=('거래금액_num', 'mean'),
+            Mean_PPA=('평당가_만원', 'mean')
+        )
+        age_stats = {
+            age_group: {
+                "transactionCount": int(stats['Count']),
+                "averagePrice": krw_10k(stats['Mean_Price']),
+                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+            } for age_group, stats in age_summary_raw.to_dict('index').items()
+        }
+    area_bins = [0, 100, 300, 1000, np.inf]
+    area_labels = ['small (<100m²)', 'medium (100-300m²)', 'large (300-1000m²)', 'extra_large (>1000m²)']
+    df['건물규모'] = pd.cut(df['전용면적_num'], bins=area_bins, labels=area_labels, right=False)
+    scale_stats = {}
+    if not df['건물규모'].isnull().all():
+        scale_summary_raw = df.groupby('건물규모', observed=True).agg(
+            Count=('거래금액_num', 'size'),
+            Mean_Price=('거래금액_num', 'mean'),
+            Mean_PPA=('평당가_만원', 'mean')
+        )
+        scale_stats = {
+            scale_group: {
+                "transactionCount": int(stats['Count']),
+                "averagePrice": krw_10k(stats['Mean_Price']),
+                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+            } for scale_group, stats in scale_summary_raw.to_dict('index').items()
+        }
+    building_stats = {
+        "statisticsByBuildingAge": age_stats,
+        "statisticsByBuildingScale_exclusiveArea": scale_stats
+    }
+    return {
+        "overallStatistics": overall_stats,
+        "priceLevelStatistics": price_stats,
+        "pricePerAreaStatistics": price_per_area_stats,
+        "statisticsByUseType": price_stats.get("priceStatisticsByUseType", {}),
+        "locationStatistics_byDong": location_stats,
+        "buildingCharacteristicsStatistics": building_stats,
+        "notes": "공장/창고 등 산업용 부동산은 용도(공장/창고/기타), 전용면적, 건물연령, 층고, 대지/건물면적 등 특성이 중요합니다. 평당가는 전용면적 기준입니다."
+    }
+
+@mcp.tool(
+    name="analyze_industrial_property_trade",
+    description="""공장/창고 등 산업용 부동산 매매 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_indu_trade_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동합니다.\n종합 통계, 가격 수준, 평당가, 용도별, 동별, 건물 특성별 등 다각적인 분석 결과를 반환합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\nArguments:\n- file_path (str, required): `get_indu_trade_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
+    tags={"공장", "창고", "산업용", "통계", "분석", "리포트", "매매", "실거래가"}
+)
+def analyze_industrial_property_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+    def call(context):
+        try:
+            p = Path(file_path)
+            if not p.exists():
+                return json.dumps({"error": f"파일을 찾을 수 없습니다: {file_path}"}, ensure_ascii=False)
+            cache_path = get_summary_cache_path(p, property_type="industrial", trade_type=None)
+            if cache_path.exists():
+                if cache_path.stat().st_mtime > p.stat().st_mtime:
+                    logger.info(f"✅ 유효한 산업용 부동산 매매 캐시를 사용합니다: {cache_path}")
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        return f.read()
+            logger.info(f"🔄 새로운 산업용 부동산 매매 분석을 수행합니다: {file_path}")
+            df = pd.read_json(p, lines=True)
+            summary_data = analyze_industrial_property_data(df)
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(summary_data, f, ensure_ascii=False, indent=4, default=default_serializer)
+            summary_data["summary_cached_path"] = str(cache_path)
+            return json.dumps(summary_data, ensure_ascii=False, indent=4, default=default_serializer)
+        except Exception as e:
+            logger.error(f"산업용 부동산 매매 데이터 분석 중 오류 발생: {e}", exc_info=True)
+            return json.dumps({"error": f"분석 중 오류가 발생했습니다: {str(e)}"}, ensure_ascii=False)
+    result = with_context(ctx, "analyze_industrial_property_trade", call)
     return TextContent(type="text", text=result) 
+
+def analyze_land_property_data(df: pd.DataFrame) -> Dict[str, Any]:
+    """DataFrame을 받아 토지 매매 통계를 분석하고 영문 key와 단위가 포함된 값으로 JSON을 반환합니다."""
+    if df.empty:
+        return {"error": "No data to analyze."}
+    # --- 데이터 전처리 ---
+    df['거래금액_num'] = to_numeric(get_col_from_df(df, '거래금액', 'dealAmount', 'dealAmountNum'))
+    # Fix: include 'dealArea' as a fallback for area
+    df['토지면적_num'] = to_numeric(get_col_from_df(df, '면적', 'landAr', 'dealArea', 'area', 'areaNum'))
+    df.dropna(subset=['거래금액_num', '토지면적_num'], inplace=True)
+    df = df[df['토지면적_num'] > 0].copy()
+    if df.empty:
+        return {"error": "No valid transaction data after cleaning."}
+    df['평당가_만원'] = (df['거래금액_num'] / df['토지면적_num']) * 3.305785
+    def krw_10k(v): return format_unit(v, "만원")
+    def krw_10k_per_pyeong(v): return format_unit(v, "만원/평")
+    # --- 1. 종합 통계 ---
+    total_count = len(df)
+    total_value = df['거래금액_num'].sum()
+    land_type_col = get_col_from_df(df, '지목', 'landType')
+    type_distribution = land_type_col.value_counts().to_dict() if land_type_col.notna().any() else {}
+    overall_stats = {
+        "totalTransactionCount": total_count,
+        "totalTransactionValue": krw_10k(total_value),
+        "transactionDistributionByLandType": type_distribution
+    }
+    # --- 2. 가격 수준 통계 ---
+    price_stats_raw = df['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
+    price_stats = {
+        "overallAveragePrice": krw_10k(price_stats_raw['mean']),
+        "overallMedianPrice": krw_10k(price_stats_raw['median']),
+        "overallHighestPrice": krw_10k(price_stats_raw['max']),
+        "overallLowestPrice": krw_10k(price_stats_raw['min']),
+        "representativeDeals": {
+            "highestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmax()]),
+            "lowestPriceDeal": clean_deal_for_display(df.loc[df['거래금액_num'].idxmin()]),
+            "dealClosestToAverage": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['mean']).abs().idxmin()]),
+            "dealClosestToMedian": clean_deal_for_display(df.loc[(df['거래금액_num'] - price_stats_raw['median']).abs().idxmin()])
+        }
+    }
+    # --- 3. 단위 면적당 가격 통계 ---
+    price_per_area_stats = {
+        "overallAveragePricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].mean()),
+        "overallMedianPricePerPyeong": krw_10k_per_pyeong(df['평당가_만원'].median()),
+    }
+    if land_type_col.notna().any():
+        price_by_type_raw = df.groupby(land_type_col)['거래금액_num'].agg(['mean', 'median', 'max', 'min'])
+        price_stats["priceStatisticsByLandType"] = {
+            land_type: {
+                "averagePrice": krw_10k(stats['mean']),
+                "medianPrice": krw_10k(stats['median']),
+                "highestPrice": krw_10k(stats['max']),
+                "lowestPrice": krw_10k(stats['min']),
+            } for land_type, stats in price_by_type_raw.to_dict('index').items()
+        }
+        price_per_area_by_type_raw = df.groupby(land_type_col)['평당가_만원'].agg(['mean', 'median'])
+        price_per_area_stats["pricePerPyeongStatisticsByLandType"] = {
+            land_type: {
+                "averagePricePerPyeong": krw_10k_per_pyeong(stats['mean']),
+                "medianPricePerPyeong": krw_10k_per_pyeong(stats['median']),
+            } for land_type, stats in price_per_area_by_type_raw.to_dict('index').items()
+        }
+    # --- 4. 입지별 통계 (동별) ---
+    location_col = get_col_from_df(df, '법정동', 'umdNm', 'dong')
+    location_stats = {}
+    if location_col.notna().any():
+        location_summary_raw = df.groupby(location_col).agg(
+            Count=('거래금액_num', 'size'),
+            Mean_Price=('거래금액_num', 'mean'),
+            Max_Price=('거래금액_num', 'max'),
+            Min_Price=('거래금액_num', 'min'),
+            Mean_PPA=('평당가_만원', 'mean'),
+            Median_PPA=('평당가_만원', 'median')
+        )
+        for dong, stats in location_summary_raw.to_dict('index').items():
+            location_stats[dong] = {
+                "transactionCount": int(stats['Count']),
+                "averagePrice": krw_10k(stats['Mean_Price']),
+                "highestPrice": krw_10k(stats['Max_Price']),
+                "lowestPrice": krw_10k(stats['Min_Price']),
+                "averagePricePerPyeong": krw_10k_per_pyeong(stats['Mean_PPA']),
+                "medianPricePerPyeong": krw_10k_per_pyeong(stats['Median_PPA']),
+            }
+    return {
+        "overallStatistics": overall_stats,
+        "priceLevelStatistics": price_stats,
+        "pricePerAreaStatistics": price_per_area_stats,
+        "statisticsByLandType": price_stats.get("priceStatisticsByLandType", {}),
+        "locationStatistics_byDong": location_stats,
+        "notes": "토지 거래는 지목(용도), 면적, 도로접면, 형상, 방위 등 특성이 중요합니다. 평당가는 토지면적 기준입니다."
+    }
+
+@mcp.tool(
+    name="analyze_land_trade",
+    description="""토지 매매 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_land_trade_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동합니다.\n종합 통계, 가격 수준, 평당가, 지목별, 동별 등 다각적인 분석 결과를 반환합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\nArguments:\n- file_path (str, required): `get_land_trade_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
+    tags={"토지", "통계", "분석", "리포트", "매매", "실거래가"}
+)
+def analyze_land_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+    def call(context):
+        try:
+            p = Path(file_path)
+            if not p.exists():
+                return json.dumps({"error": f"파일을 찾을 수 없습니다: {file_path}"}, ensure_ascii=False)
+            cache_path = get_summary_cache_path(p, property_type="land", trade_type=None)
+            if cache_path.exists():
+                if cache_path.stat().st_mtime > p.stat().st_mtime:
+                    logger.info(f"✅ 유효한 토지 매매 캐시를 사용합니다: {cache_path}")
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        return f.read()
+            logger.info(f"🔄 새로운 토지 매매 분석을 수행합니다: {file_path}")
+            df = pd.read_json(p, lines=True)
+            summary_data = analyze_land_property_data(df)
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(summary_data, f, ensure_ascii=False, indent=4, default=default_serializer)
+            summary_data["summary_cached_path"] = str(cache_path)
+            return json.dumps(summary_data, ensure_ascii=False, indent=4, default=default_serializer)
+        except Exception as e:
+            logger.error(f"토지 매매 데이터 분석 중 오류 발생: {e}", exc_info=True)
+            return json.dumps({"error": f"분석 중 오류가 발생했습니다: {str(e)}"}, ensure_ascii=False)
+    result = with_context(ctx, "analyze_land_trade", call)
+    return TextContent(type="text", text=result)
