@@ -1,4 +1,12 @@
+[한국어] | [English](README_en.md)
+
 # MCP 부동산 투자 분석 서버
+
+![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)
+
+> **⚠️ 본 프로젝트는 비상업적(Non-Commercial) 용도로만 사용 가능합니다.**
+> 
+> This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). Commercial use is strictly prohibited.
 
 ![License](https://img.shields.io/github/license/ChangooLee/mcp-kr-realestate)
 ![GitHub Stars](https://img.shields.io/github/stars/ChangooLee/mcp-kr-realestate)
@@ -183,6 +191,14 @@ print(corr_result.text)  # 상관계수, 회귀분석, 데이터 정렬 결과 �
 ## 📝 기여/문의/라이선스
 
 - 기여 방법, 이슈/문의, 라이선스(기존 내용 유지)
+
+### 라이선스
+
+이 프로젝트는 [CC BY-NC 4.0 (비상업적 이용만 허용)](https://creativecommons.org/licenses/by-nc/4.0/) 라이선스를 따릅니다.
+
+- **상업적 이용 금지**: 본 소프트웨어 및 데이터, 코드, 문서 일체는 상업적 목적으로 사용할 수 없습니다.
+- **저작자 표시**: 사용 시 반드시 저작자(Changoo Lee)와 라이선스 링크를 명시해야 합니다.
+- 자세한 내용은 LICENSE 파일과 위 링크를 참고하세요.
 
 ---
 
