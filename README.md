@@ -196,9 +196,13 @@ print(corr_result.text)  # 상관계수, 회귀분석, 데이터 정렬 결과 �
 
 이 프로젝트는 [CC BY-NC 4.0 (비상업적 이용만 허용)](https://creativecommons.org/licenses/by-nc/4.0/) 라이선스를 따릅니다.
 
-- **상업적 이용 금지**: 본 소프트웨어 및 데이터, 코드, 문서 일체는 상업적 목적으로 사용할 수 없습니다.
-- **저작자 표시**: 사용 시 반드시 저작자(Changoo Lee)와 라이선스 링크를 명시해야 합니다.
+- **비상업적, 개인, 연구/학습, 비영리 목적에 한해 사용 가능합니다.**
+- **영리기업, 상업적 서비스, 수익 창출 목적의 사용은 엄격히 금지됩니다.**
+- 사용 목적이 불분명할 경우 반드시 저작자(Changoo Lee)에게 문의하시기 바랍니다.
 - 자세한 내용은 LICENSE 파일과 위 링크를 참고하세요.
+
+> **English:**
+> This project is licensed under CC BY-NC 4.0. Use is permitted only for non-commercial, personal, academic/research, or non-profit purposes. Any use by for-profit companies, commercial services, or in any revenue-generating activity is strictly prohibited. See the LICENSE file for details.
 
 ---
 

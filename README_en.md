@@ -193,9 +193,13 @@ print(corr_result.text)  # Correlation, regression, aligned data, etc.
 
 This project is licensed under the [CC BY-NC 4.0 (Non-Commercial Use Only)](https://creativecommons.org/licenses/by-nc/4.0/) license.
 
-- **Commercial use is strictly prohibited.**
-- **Attribution required**: You must credit the author (Changoo Lee) and provide a link to the license.
+- **Use is permitted only for non-commercial, personal, academic/research, or non-profit purposes.**
+- **Any use by for-profit companies, commercial services, or in any revenue-generating activity is strictly prohibited.**
+- If you are unsure whether your use is permitted, please contact the author (Changoo Lee).
 - See the LICENSE file and the link above for full details.
+
+> **한국어:**
+> 본 프로젝트는 CC BY-NC 4.0 라이선스 하에 배포되며, 비상업적, 개인, 연구/학습, 비영리 목적에 한해 사용 가능합니다. 영리기업, 상업적 서비스, 수익 창출 목적의 사용은 엄격히 금지됩니다. 자세한 내용은 LICENSE 파일을 참고하세요.
 
 ---
 
