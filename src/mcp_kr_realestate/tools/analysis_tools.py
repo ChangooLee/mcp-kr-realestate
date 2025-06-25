@@ -14,6 +14,9 @@ import os
 from dateutil.parser import parse as date_parse
 import re
 import unicodedata
+import glob
+import time
+from mcp_kr_realestate.apis.ecos_api import get_key_statistic_list
 
 from mcp_kr_realestate.server import mcp
 from mcp_kr_realestate.utils.ctx_helper import with_context
@@ -1632,29 +1635,82 @@ def _ecos_timerange_to_dates(cycle, timerange):
     else:
         return start, end
 
+def _load_all_stat_table_rows():
+    """모든 StatisticTableList 캐시 파일을 병합하여 row 리스트 반환"""
+    import json
+    import os
+    cache_dir = os.path.join(os.path.dirname(__file__), "../utils/cache")
+    files = glob.glob(os.path.join(cache_dir, "StatisticTableList_end-*_start-*.json"))
+    all_rows = []
+    for f in files:
+        try:
+            with open(f, "r", encoding="utf-8") as fp:
+                data = json.load(fp)
+            rows = data.get("StatisticTableList", {}).get("row", [])
+            if isinstance(rows, dict):
+                rows = [rows]
+            all_rows.extend(rows)
+        except Exception:
+            continue
+    return all_rows
+
+def ensure_latest_keystatlist_cache():
+    cache_path = os.path.join(os.path.dirname(__file__), "../utils/cache/ecos/KeyStatisticList.json")
+    # 24시간 이내면 그대로 사용
+    if os.path.exists(cache_path):
+        mtime = os.path.getmtime(cache_path)
+        if time.time() - mtime < 86400:
+            return
+    # 아니면 최신화
+    get_key_statistic_list({"start": 1, "end": 100})
+
 @mcp.tool(
     name="search_realestate_indicators",
     description="""
-키워드로 부동산 관련 ECOS 통계표를 통합 검색하고, 관련 통계표/항목/최신 데이터까지 자동으로 요약해주는 도구입니다. 
-- 예시: search_realestate_indicators({"keyword": "주택담보대출", "timerange": "2018-2024"})
-- 반환: 관련 통계표 목록, 각 통계표의 주요 항목, 최신 데이터(상위 5개) 요약
+키워드로 한국은행 ECOS의 부동산/금리/가계/투자/거시/심리지표 통계표를 검색하고, 관련 통계표/항목/최신 데이터까지 요약합니다.
+
+- 사용법 예시: search_realestate_indicators({"keyword": "기준금리"})
+- 주요 추천 키워드: 주택매매가격지수, 기준금리, 가계신용, 건설투자증감률, 소비자심리지수 등
+- data_preview가 빈값이면: 해당 통계표는 시계열 데이터가 없거나, ECOS API에서 데이터가 제공되지 않는 경우입니다.
+- 키워드가 잘 안 맞으면: 더 구체적이거나 ECOS 공식 용어(예: '주택매매가격지수', '콜금리(익일물)')를 사용해보세요.
+- 통계표별 대표 항목/시계열이 궁금하면: 'items' 필드에서 ITM_NM(항목명)을 참고하세요.
+
+[실전 시나리오]
+1. 금리와 부동산 가격 동향 비교: '기준금리', '주택매매가격지수' 등으로 검색
+2. 대출/신용 동향: '가계신용', '예금은행대출금' 등으로 검색
+3. 공급/투자 동향: '건설투자증감률', '건축허가면적' 등으로 검색
+
+[2025년 예시 데이터]
+- keyword: "기준금리" → stat_name: "한국은행 기준금리", current_value: "2.5", cycle: "20250622"
+- keyword: "주택매매가격지수" → stat_name: "주택매매가격지수", current_value: "100", cycle: "202505"
+- keyword: "가계신용" → stat_name: "가계신용", current_value: "1928734.5", cycle: "2025Q1"
 """,
-    tags={"ECOS", "통합검색", "부동산", "통계", "자동수집"}
+    tags={"ECOS", "통합검색", "부동산", "통계", "자동수집", "추천지표"}
 )
 def search_realestate_indicators(params: dict) -> TextContent:
-    import json
+    ensure_latest_keystatlist_cache()
     import pandas as pd
-    from mcp_kr_realestate.apis.ecos_api import get_statistic_table_list, get_statistic_item_list, get_statistic_search
+    from mcp_kr_realestate.apis.ecos_api import get_statistic_item_list, get_statistic_search
     from difflib import SequenceMatcher
     keyword = params.get("keyword")
     timerange = params.get("timerange")
     if not keyword:
         return TextContent(type="text", text=json.dumps({"error": "keyword 파라미터는 필수입니다."}, ensure_ascii=False))
+    # 1. 주요지표명 매핑 우선
+    mapped_name = REALESTATE_KEY_INDICATORS.get(keyword) or keyword
+    keystat_row = KEYSTAT_NAME_TO_ROW.get(mapped_name)
+    result = []
+    if keystat_row:
+        # KeyStatisticList에서 직접 매칭된 경우
+        result.append({
+            "stat_name": keystat_row.get("KEYSTAT_NAME"),
+            "class_name": keystat_row.get("CLASS_NAME"),
+            "current_value": keystat_row.get("DATA_VALUE"),
+            "cycle": keystat_row.get("CYCLE"),
+            "unit": keystat_row.get("UNIT_NAME")
+        })
     try:
-        table_path = get_statistic_table_list({"start": 1, "end": 1000, "stat_code": None})
-        with open(str(table_path), "r", encoding="utf-8") as f:
-            data = json.load(f)
-        rows = data.get("StatisticTableList", {}).get("row", [])
+        rows = _load_all_stat_table_rows()
         def match_score(row):
             name = row.get("STAT_NAME", "")
             norm_name = _normalize_korean(name)
@@ -1664,7 +1720,6 @@ def search_realestate_indicators(params: dict) -> TextContent:
             return (contains, ratio)
         scored = sorted(rows, key=match_score, reverse=True)
         matched = [r for r in scored if match_score(r)[0] or match_score(r)[1] > 0.5][:10]
-        result = []
         for row in matched:
             stat_code = row.get("STAT_CODE")
             stat_name = row.get("STAT_NAME")
@@ -1715,14 +1770,28 @@ def search_realestate_indicators(params: dict) -> TextContent:
 @mcp.tool(
     name="analyze_correlation_with_realestate",
     description="""
-특정 지역 실거래가와 ECOS 거시지표(금리, 신용, 물가 등) 간 상관관계/회귀분석을 자동으로 수행하는 도구입니다.
-- 예시: analyze_correlation_with_realestate({"region_code": "11110", "year_month": "202301", "ecos_stat_code": "722Y001", "cycle": "M"})
-- 반환: 상관계수, 회귀분석 결과, 데이터 요약
+특정 지역 실거래가와 ECOS 거시지표(금리, 신용, 물가 등) 간 상관관계/회귀분석을 자동으로 수행합니다.
+
+- 사용법 예시: analyze_correlation_with_realestate({"region_code": "11110", "year_month": "202501", "ecos_stat_code": "기준금리"})
+- ecos_stat_code는 자연어(예: '기준금리', '가계신용') 또는 ECOS 통계표코드 모두 지원
+- 최소 3개 이상의 월별 데이터가 있어야 분석이 가능합니다.
+- aligned_data가 빈 배열이면: 부동산 데이터와 ECOS 데이터의 월별 시점이 일치하지 않거나, 거래금액 컬럼이 누락된 경우입니다.
+- 거래금액_num이 NaN이면: 실거래 데이터에 '거래금액' 컬럼이 없거나, 데이터 형식이 잘못된 경우입니다.
+- 데이터가 부족할 때는, 더 긴 기간(year_month) 또는 다른 지역(region_code)을 시도해보세요.
+
+[실전 시나리오]
+1. 서울 아파트 실거래가와 기준금리 상관관계: region_code=11110, year_month=202501, ecos_stat_code='기준금리'
+2. 전국 아파트 실거래가와 가계신용 상관관계: region_code=11110, year_month=202501, ecos_stat_code='가계신용'
+
+[2025년 예시 데이터]
+- region_code: "11110", year_month: "202501", ecos_stat_code: "기준금리"
+- aligned_data: [{"계약년월": "202501", "거래금액_num": 90000, "ecos_value": 2.5}, ...]
+- correlation: 0.85, regression: {"coef": 10000, "intercept": 50000, "r2": 0.72}
 """,
-    tags={"ECOS", "실거래가", "상관분석", "예측", "부동산"}
+    tags={"ECOS", "실거래가", "상관분석", "예측", "부동산", "추천지표"}
 )
 def analyze_correlation_with_realestate(params: dict) -> TextContent:
-    import json
+    ensure_latest_keystatlist_cache()
     import pandas as pd
     from mcp_kr_realestate.apis.apt_trade import get_apt_trade_data
     from mcp_kr_realestate.apis.ecos_api import get_statistic_search
@@ -1731,11 +1800,23 @@ def analyze_correlation_with_realestate(params: dict) -> TextContent:
     ecos_stat_code = params.get("ecos_stat_code")
     cycle = params.get("cycle", "M")
     errors = {}
+    # --- 자연어 지표명 stat_code 자동 매핑 ---
+    if ecos_stat_code and not ecos_stat_code.isalnum():
+        mapped_name = REALESTATE_KEY_INDICATORS.get(ecos_stat_code) or ecos_stat_code
+        keystat_row = KEYSTAT_NAME_TO_ROW.get(mapped_name)
+        if keystat_row:
+            ecos_stat_code = keystat_row.get("KEYSTAT_NAME")
     if not (region_code and year_month and ecos_stat_code):
         return TextContent(type="text", text=json.dumps({"error": "region_code, year_month, ecos_stat_code 모두 필요합니다."}, ensure_ascii=False))
-    # 1. 실거래가 데이터 수집
+    # 1. 실거래가 데이터 수집 (최대 36개월치)
     try:
-        apt_json = get_apt_trade_data(region_code, year_month)
+        # year_month가 YYYYMM 또는 YYYY 형태로 들어올 수 있음
+        # 3년치 데이터 확보
+        if len(year_month) == 6:
+            start_ym = str(int(year_month) - 300)  # 3년 전
+        else:
+            start_ym = str(int(year_month) - 3)
+        apt_json = get_apt_trade_data(region_code, start_ym)
         apt_data = json.loads(apt_json)
         deals = []
         for dong in apt_data.get("byDong", []):
@@ -1744,9 +1825,9 @@ def analyze_correlation_with_realestate(params: dict) -> TextContent:
     except Exception as e:
         errors["apt_trade"] = str(e)
         df_apt = pd.DataFrame()
-    # 2. ECOS 시계열 데이터 수집 (해당 월)
+    # 2. ECOS 시계열 데이터 수집 (동일 기간)
     try:
-        start_time, end_time = _ecos_timerange_to_dates(cycle, year_month)
+        start_time, end_time = _ecos_timerange_to_dates(cycle, f"{start_ym}-{year_month}")
         ecos_path = get_statistic_search({
             "stat_code": ecos_stat_code,
             "cycle": cycle,
@@ -1757,7 +1838,7 @@ def analyze_correlation_with_realestate(params: dict) -> TextContent:
             "item_code3": None,
             "item_code4": None,
             "start": 1,
-            "end": 10
+            "end": 100
         })
         with open(str(ecos_path), "r", encoding="utf-8") as f:
             ecos_data = json.load(f)
@@ -1766,14 +1847,48 @@ def analyze_correlation_with_realestate(params: dict) -> TextContent:
     except Exception as e:
         errors["ecos_search"] = str(e)
         df_ecos = pd.DataFrame()
-    # 3. 상관분석/회귀분석 (거래금액 vs. ECOS 값)
+    # 3. 시계열 정렬 및 집계 (월별 YYYYMM 기준 교집합만 inner join, 컬럼명 자동 탐색)
     try:
         if not df_apt.empty and not df_ecos.empty:
-            apt_price = pd.to_numeric(df_apt.get("거래금액", pd.Series([])).str.replace(",", ""), errors="coerce")
-            ecos_val = pd.to_numeric(df_ecos.get("DATA_VALUE", pd.Series([])), errors="coerce")
-            corr = float(apt_price.corr(ecos_val)) if not apt_price.empty and not ecos_val.empty else None
-            # 단순 선형회귀 (statsmodels 없이)
-            if not apt_price.empty and not ecos_val.empty and len(apt_price) == len(ecos_val):
+            # 부동산 데이터 계약년월 컬럼 자동 탐색 및 YYYYMM 포맷 강제화
+            apt_month_col = None
+            for col in ["계약년월", "yearMonth", "YM", "MONTH"]:
+                if col in df_apt.columns:
+                    apt_month_col = col
+                    break
+            if not apt_month_col:
+                errors["apt_trade"] = "실거래 데이터에 계약년월(YYYYMM) 컬럼이 없습니다."
+                return TextContent(type="text", text=json.dumps({"error": errors}, ensure_ascii=False, indent=2))
+            df_apt["계약년월"] = df_apt[apt_month_col].astype(str).str[:6]
+            # 거래금액 컬럼 자동 탐색
+            price_col = None
+            for col in ["거래금액", "dealAmount", "거래금액_num", "price"]:
+                if col in df_apt.columns:
+                    price_col = col
+                    break
+            if not price_col:
+                errors["apt_trade"] = "실거래 데이터에 거래금액 컬럼이 없습니다."
+                return TextContent(type="text", text=json.dumps({"error": errors}, ensure_ascii=False, indent=2))
+            df_apt["거래금액_num"] = pd.to_numeric(df_apt[price_col].astype(str).str.replace(",", ""), errors="coerce")
+            apt_monthly = df_apt.groupby("계약년월")["거래금액_num"].mean().reset_index()
+            # ECOS 데이터 월 컬럼 자동 탐색 및 YYYYMM 포맷 강제화
+            ecos_month_col = None
+            for col in ["TIME", "PRD_DE", "계약년월", "YM", "MONTH"]:
+                if col in df_ecos.columns:
+                    ecos_month_col = col
+                    break
+            if not ecos_month_col:
+                errors["ecos_search"] = "ECOS 데이터에 월(YYYYMM) 컬럼이 없습니다."
+                return TextContent(type="text", text=json.dumps({"error": errors}, ensure_ascii=False, indent=2))
+            df_ecos["계약년월"] = df_ecos[ecos_month_col].astype(str).str[:6]
+            df_ecos["ecos_value"] = pd.to_numeric(df_ecos.get("DATA_VALUE", pd.Series([])), errors="coerce")
+            # inner join (월별 교집합)
+            merged = pd.merge(apt_monthly, df_ecos[["계약년월", "ecos_value"]], on="계약년월", how="inner")
+            merged = merged.dropna(subset=["거래금액_num", "ecos_value"])
+            if len(merged) >= 3:
+                apt_price = merged["거래금액_num"]
+                ecos_val = merged["ecos_value"]
+                corr = float(apt_price.corr(ecos_val))
                 import numpy as np
                 from sklearn.linear_model import LinearRegression
                 X = ecos_val.values.reshape(-1, 1)
@@ -1783,15 +1898,21 @@ def analyze_correlation_with_realestate(params: dict) -> TextContent:
                 intercept = float(model.intercept_)
                 score = float(model.score(X, y))
                 regression = {"coef": coef, "intercept": intercept, "r2": score}
+                aligned_data = merged.to_dict(orient="records")
             else:
+                corr = None
                 regression = None
+                aligned_data = merged.to_dict(orient="records")
+                errors["not_enough_data"] = f"상관분석/회귀분석을 위해 최소 3개 이상의 월별 데이터가 필요합니다. 현재 {len(merged)}개. 누락 월: {set(df_apt['계약년월']) ^ set(df_ecos['계약년월'])}"
         else:
             corr = None
             regression = None
+            aligned_data = []
     except Exception as e:
         errors["correlation"] = str(e)
         corr = None
         regression = None
+        aligned_data = []
     summary = {
         "region_code": region_code,
         "year_month": year_month,
@@ -1799,8 +1920,42 @@ def analyze_correlation_with_realestate(params: dict) -> TextContent:
         "cycle": cycle,
         "correlation": corr,
         "regression": regression,
+        "aligned_data": aligned_data[:10],
         "apt_sample": df_apt.head(3).to_dict(orient="records"),
         "ecos_sample": df_ecos.head(3).to_dict(orient="records"),
         "errors": errors
     }
     return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))
+
+# === [핵심 부동산/금리/가계/투자/거시/심리지표명 → ECOS KeyStatisticList 매핑] ===
+# 실제 stat_code는 ECOS StatisticTableList/KeyStatisticList에서 매핑 필요. 아래는 예시(실제 코드에서는 자동 매핑/검색도 지원)
+REALESTATE_KEY_INDICATORS = {
+    "주택매매가격지수": "주택매매가격지수",
+    "주택전세가격지수": "주택전세가격지수",
+    "지가변동률": "지가변동률(전기대비)",
+    "한국은행 기준금리": "한국은행 기준금리",
+    "예금은행 대출금리": "예금은행 대출금리",
+    "콜금리": "콜금리(익일물)",
+    "KORIBOR": "KORIBOR(3개월)",
+    "가계신용": "가계신용",
+    "가계대출연체율": "가계대출연체율",
+    "건설투자증감률": "건설투자증감률(실질, 계절조정 전기대비)",
+    "건축허가면적": "건축허가면적",
+    "건설기성액": "건설기성액",
+    "건축착공면적": "건축착공면적",
+    "경제성장률": "경제성장률(실질, 계절조정 전기대비)",
+    "M2통화량": "M2(광의통화, 평잔)",
+    "소비자심리지수": "소비자심리지수",
+    "가구당소득": "가구당월평균소득"
+}
+
+def load_keystat_name_to_code():
+    cache_path = os.path.join(os.path.dirname(__file__), "../utils/cache/ecos/KeyStatisticList.json")
+    if not os.path.exists(cache_path):
+        return {}
+    with open(cache_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    rows = data.get("KeyStatisticList", {}).get("row", [])
+    return {row["KEYSTAT_NAME"].replace("(전기대비)", ""): row for row in rows if "KEYSTAT_NAME" in row}
+
+KEYSTAT_NAME_TO_ROW = load_keystat_name_to_code()
