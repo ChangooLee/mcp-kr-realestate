@@ -13,6 +13,7 @@ from datetime import datetime
 import os
 from dateutil.parser import parse as date_parse
 import re
+import unicodedata
 
 from mcp_kr_realestate.server import mcp
 from mcp_kr_realestate.utils.ctx_helper import with_context
@@ -1570,3 +1571,236 @@ def get_ecos_key_statistic_list(params: dict) -> TextContent:
         return TextContent(type="text", text=json.dumps({"cache_path": str(path), "preview": "No preview available"}, ensure_ascii=False, indent=2))
     except Exception as e:
         return TextContent(type="text", text=json.dumps({"cache_path": str(path), "error": str(e)}, ensure_ascii=False, indent=2))
+
+def _normalize_korean(text):
+    # 한글 자모 분리 및 소문자 변환
+    if not isinstance(text, str):
+        return ""
+    text = unicodedata.normalize('NFKD', text)
+    return ''.join([c for c in text if not unicodedata.combining(c)]).lower().replace(" ", "")
+
+def _ecos_timerange_to_dates(cycle, timerange):
+    """
+    ECOS CYCLE: 'A'(연), 'M'(월), 'Q'(분기), 'D'(일)
+    timerange: '2018-2024', '2020', '202301-202312', ...
+    Returns: (start_time, end_time) in ECOS API format
+    """
+    import re
+    import pandas as pd
+    if not timerange:
+        now = pd.Timestamp.now()
+        if cycle == 'A':
+            return str(now.year - 3), str(now.year)
+        elif cycle == 'M':
+            return (now - pd.DateOffset(years=3)).strftime('%Y%m'), now.strftime('%Y%m')
+        elif cycle == 'Q':
+            return f"{now.year-3}Q1", f"{now.year}Q4"
+        elif cycle == 'D':
+            return (now - pd.DateOffset(years=1)).strftime('%Y%m%d'), now.strftime('%Y%m%d')
+        else:
+            return str(now.year - 3), str(now.year)
+    # timerange 파싱
+    parts = re.split(r'[-~]', timerange)
+    if len(parts) == 2:
+        start, end = parts
+    else:
+        start = end = parts[0]
+    # 각 주기별로 변환
+    def pad(val, n):
+        return val + '0'*(n-len(val)) if len(val) < n else val
+    if cycle == 'A':
+        return start[:4], end[:4]
+    elif cycle == 'M':
+        # YYYYMM 형식으로 보정
+        s = pad(start, 6) if len(start) <= 6 else start[:6]
+        e = pad(end, 6) if len(end) <= 6 else end[:6]
+        return s, e
+    elif cycle == 'Q':
+        # YYYYQn 형식
+        def to_q(val):
+            if 'Q' in val: return val
+            if len(val) == 6 and val[4] in '1234':
+                return val[:4] + 'Q' + val[5]
+            if len(val) == 5 and val[4] in '1234':
+                return val[:4] + 'Q' + val[4]
+            return val[:4] + 'Q1'
+        return to_q(start), to_q(end)
+    elif cycle == 'D':
+        s = pad(start, 8) if len(start) <= 8 else start[:8]
+        e = pad(end, 8) if len(end) <= 8 else end[:8]
+        return s, e
+    else:
+        return start, end
+
+@mcp.tool(
+    name="search_realestate_indicators",
+    description="""
+키워드로 부동산 관련 ECOS 통계표를 통합 검색하고, 관련 통계표/항목/최신 데이터까지 자동으로 요약해주는 도구입니다. 
+- 예시: search_realestate_indicators({"keyword": "주택담보대출", "timerange": "2018-2024"})
+- 반환: 관련 통계표 목록, 각 통계표의 주요 항목, 최신 데이터(상위 5개) 요약
+""",
+    tags={"ECOS", "통합검색", "부동산", "통계", "자동수집"}
+)
+def search_realestate_indicators(params: dict) -> TextContent:
+    import json
+    import pandas as pd
+    from mcp_kr_realestate.apis.ecos_api import get_statistic_table_list, get_statistic_item_list, get_statistic_search
+    from difflib import SequenceMatcher
+    keyword = params.get("keyword")
+    timerange = params.get("timerange")
+    if not keyword:
+        return TextContent(type="text", text=json.dumps({"error": "keyword 파라미터는 필수입니다."}, ensure_ascii=False))
+    try:
+        table_path = get_statistic_table_list({"start": 1, "end": 1000, "stat_code": None})
+        with open(str(table_path), "r", encoding="utf-8") as f:
+            data = json.load(f)
+        rows = data.get("StatisticTableList", {}).get("row", [])
+        def match_score(row):
+            name = row.get("STAT_NAME", "")
+            norm_name = _normalize_korean(name)
+            norm_kw = _normalize_korean(keyword)
+            ratio = SequenceMatcher(None, norm_name, norm_kw).ratio()
+            contains = norm_kw in norm_name
+            return (contains, ratio)
+        scored = sorted(rows, key=match_score, reverse=True)
+        matched = [r for r in scored if match_score(r)[0] or match_score(r)[1] > 0.5][:10]
+        result = []
+        for row in matched:
+            stat_code = row.get("STAT_CODE")
+            stat_name = row.get("STAT_NAME")
+            cycle = row.get("CYCLE") or "A"
+            # 2. 세부항목 조회
+            try:
+                item_path = get_statistic_item_list({"stat_code": stat_code, "start": 1, "end": 100})
+                with open(str(item_path), "r", encoding="utf-8") as f:
+                    item_data = json.load(f)
+                items = item_data.get("StatisticItemList", {}).get("row", [])
+            except Exception as e:
+                items = f"항목 조회 실패: {e}"
+            # 3. 최신 데이터 조회 (timerange 미지정시 최근 3년)
+            try:
+                start_time, end_time = _ecos_timerange_to_dates(cycle, timerange)
+                data_path = get_statistic_search({
+                    "stat_code": stat_code,
+                    "cycle": cycle,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "item_code1": None,
+                    "item_code2": None,
+                    "item_code3": None,
+                    "item_code4": None,
+                    "start": 1,
+                    "end": 100
+                })
+                with open(str(data_path), "r", encoding="utf-8") as f:
+                    stat_data = json.load(f)
+                stat_rows = stat_data.get("StatisticSearch", {}).get("row", [])
+                df = pd.DataFrame(stat_rows)
+                preview = df.head(5).to_dict(orient="records") if not df.empty else []
+            except Exception as e:
+                preview = f"데이터 조회 실패: {e}"
+            result.append({
+                "stat_code": stat_code,
+                "stat_name": stat_name,
+                "cycle": cycle,
+                "items": [{"itm_id": itm.get("ITM_ID"), "itm_nm": itm.get("ITM_NM")} for itm in items] if isinstance(items, list) else items,
+                "data_preview": preview
+            })
+        if not result:
+            return TextContent(type="text", text=json.dumps({"error": "키워드와 유사한 통계표를 찾지 못했습니다.", "keyword": keyword}, ensure_ascii=False, indent=2))
+        return TextContent(type="text", text=json.dumps({"keyword": keyword, "results": result}, ensure_ascii=False, indent=2))
+    except Exception as e:
+        return TextContent(type="text", text=json.dumps({"error": f"통합검색 실패: {e}"}, ensure_ascii=False, indent=2))
+
+@mcp.tool(
+    name="analyze_correlation_with_realestate",
+    description="""
+특정 지역 실거래가와 ECOS 거시지표(금리, 신용, 물가 등) 간 상관관계/회귀분석을 자동으로 수행하는 도구입니다.
+- 예시: analyze_correlation_with_realestate({"region_code": "11110", "year_month": "202301", "ecos_stat_code": "722Y001", "cycle": "M"})
+- 반환: 상관계수, 회귀분석 결과, 데이터 요약
+""",
+    tags={"ECOS", "실거래가", "상관분석", "예측", "부동산"}
+)
+def analyze_correlation_with_realestate(params: dict) -> TextContent:
+    import json
+    import pandas as pd
+    from mcp_kr_realestate.apis.apt_trade import get_apt_trade_data
+    from mcp_kr_realestate.apis.ecos_api import get_statistic_search
+    region_code = params.get("region_code")
+    year_month = params.get("year_month")
+    ecos_stat_code = params.get("ecos_stat_code")
+    cycle = params.get("cycle", "M")
+    errors = {}
+    if not (region_code and year_month and ecos_stat_code):
+        return TextContent(type="text", text=json.dumps({"error": "region_code, year_month, ecos_stat_code 모두 필요합니다."}, ensure_ascii=False))
+    # 1. 실거래가 데이터 수집
+    try:
+        apt_json = get_apt_trade_data(region_code, year_month)
+        apt_data = json.loads(apt_json)
+        deals = []
+        for dong in apt_data.get("byDong", []):
+            deals.extend(dong.get("deals", []))
+        df_apt = pd.DataFrame(deals)
+    except Exception as e:
+        errors["apt_trade"] = str(e)
+        df_apt = pd.DataFrame()
+    # 2. ECOS 시계열 데이터 수집 (해당 월)
+    try:
+        start_time, end_time = _ecos_timerange_to_dates(cycle, year_month)
+        ecos_path = get_statistic_search({
+            "stat_code": ecos_stat_code,
+            "cycle": cycle,
+            "start_time": start_time,
+            "end_time": end_time,
+            "item_code1": None,
+            "item_code2": None,
+            "item_code3": None,
+            "item_code4": None,
+            "start": 1,
+            "end": 10
+        })
+        with open(str(ecos_path), "r", encoding="utf-8") as f:
+            ecos_data = json.load(f)
+        ecos_rows = ecos_data.get("StatisticSearch", {}).get("row", [])
+        df_ecos = pd.DataFrame(ecos_rows)
+    except Exception as e:
+        errors["ecos_search"] = str(e)
+        df_ecos = pd.DataFrame()
+    # 3. 상관분석/회귀분석 (거래금액 vs. ECOS 값)
+    try:
+        if not df_apt.empty and not df_ecos.empty:
+            apt_price = pd.to_numeric(df_apt.get("거래금액", pd.Series([])).str.replace(",", ""), errors="coerce")
+            ecos_val = pd.to_numeric(df_ecos.get("DATA_VALUE", pd.Series([])), errors="coerce")
+            corr = float(apt_price.corr(ecos_val)) if not apt_price.empty and not ecos_val.empty else None
+            # 단순 선형회귀 (statsmodels 없이)
+            if not apt_price.empty and not ecos_val.empty and len(apt_price) == len(ecos_val):
+                import numpy as np
+                from sklearn.linear_model import LinearRegression
+                X = ecos_val.values.reshape(-1, 1)
+                y = apt_price.values
+                model = LinearRegression().fit(X, y)
+                coef = float(model.coef_[0])
+                intercept = float(model.intercept_)
+                score = float(model.score(X, y))
+                regression = {"coef": coef, "intercept": intercept, "r2": score}
+            else:
+                regression = None
+        else:
+            corr = None
+            regression = None
+    except Exception as e:
+        errors["correlation"] = str(e)
+        corr = None
+        regression = None
+    summary = {
+        "region_code": region_code,
+        "year_month": year_month,
+        "ecos_stat_code": ecos_stat_code,
+        "cycle": cycle,
+        "correlation": corr,
+        "regression": regression,
+        "apt_sample": df_apt.head(3).to_dict(orient="records"),
+        "ecos_sample": df_ecos.head(3).to_dict(orient="records"),
+        "errors": errors
+    }
+    return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))
