@@ -178,7 +178,7 @@ PUBLIC_DATA_API_KEY=your_public_data_api_key_here
 # 한국은행 ECOS API 키 (필수)
 # 발급처: https://ecos.bok.or.kr
 # 용도: 금리, 환율, 경제지표 등
-ECOS_API_KEY=your_ecos_api_key_here
+ECOS_API_KEY=MDMZ7EY5GO3DKBL3L84W
 
 # =================================================================
 # 선택 API 키 - 특정 지역/기능 사용 시에만 필요

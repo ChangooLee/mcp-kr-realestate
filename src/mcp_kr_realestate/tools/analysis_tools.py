@@ -18,6 +18,13 @@ from mcp_kr_realestate.server import mcp
 from mcp_kr_realestate.utils.ctx_helper import with_context
 from mcp.types import TextContent
 from mcp_kr_realestate.apis.reb_api import get_reb_stat_list, get_reb_stat_items, get_reb_stat_data, get_reb_stat_list_all, get_reb_stat_items_all, get_reb_stat_data_all, cache_stat_list_full, cache_stat_list
+from mcp_kr_realestate.apis.ecos_api import (
+    get_statistic_table_list,
+    get_statistic_word,
+    get_statistic_item_list,
+    get_statistic_search,
+    get_key_statistic_list,
+)
 
 logger = logging.getLogger("mcp-kr-realestate")
 
@@ -112,7 +119,8 @@ def get_summary_cache_path(p: Path, property_type: Optional[str] = None, trade_t
     property_type: 'commercial', 'land', 'industrial', 'apartment', 'officetel', 'row_house', 'single_detached', ...
     trade_type: 'trade', 'rent', None
     """
-    cache_dir = p.parent.parent / "cache"
+    # Set cache directory to the correct path relative to project root
+    cache_dir = Path(__file__).parent.parent / "utils/cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     # 상업/토지/창고(산업용)는 매매/전월세 구분 없이 하나의 summary
     if property_type in {"commercial", "land", "industrial"}:
@@ -1947,3 +1955,108 @@ def analyze_reb_stat_data(params: dict) -> TextContent:
         "preview": preview
     }
     return TextContent(type="text", text=json.dumps(summary, ensure_ascii=False))
+
+@mcp.tool(
+    name="get_ecos_statistic_table_list",
+    description="""
+한국은행 ECOS 오픈API의 통계표 목록을 조회하고 캐싱합니다. (StatisticTableList)
+
+사용법 예시:
+get_ecos_statistic_table_list({"start": 1, "end": 100, "stat_code": null})
+- start, end: 조회 시작/종료 인덱스(기본 1~100)
+- stat_code: 특정 통계표코드로 필터링(선택)
+
+결과는 json으로 캐싱되며, 캐시 파일 경로를 반환합니다.
+""",
+    tags={"ECOS", "통계", "목록", "한국은행"}
+)
+def get_ecos_statistic_table_list(params: dict) -> TextContent:
+    path = get_statistic_table_list(params)
+    return TextContent(type="text", text=str(path))
+
+@mcp.tool(
+    name="get_ecos_statistic_word",
+    description="""
+한국은행 ECOS 오픈API의 통계용어사전을 조회하고 캐싱합니다. (StatisticWord)
+
+사용법 예시:
+get_ecos_statistic_word({"word": null, "start": 1, "end": 100})
+- word: 검색할 용어(선택)
+- start, end: 조회 시작/종료 인덱스(기본 1~100)
+
+결과는 json으로 캐싱되며, 캐시 파일 경로를 반환합니다.
+""",
+    tags={"ECOS", "통계", "용어", "사전", "한국은행"}
+)
+def get_ecos_statistic_word(params: dict) -> TextContent:
+    path = get_statistic_word(params)
+    return TextContent(type="text", text=str(path))
+
+@mcp.tool(
+    name="get_ecos_statistic_item_list",
+    description="""
+한국은행 ECOS 오픈API의 통계 세부항목 목록을 조회하고 캐싱합니다. (StatisticItemList)
+
+사용법 예시:
+get_ecos_statistic_item_list({"stat_code": "601Y002", "start": 1, "end": 100})
+- stat_code: 통계표코드(필수)
+- start, end: 조회 시작/종료 인덱스(기본 1~100)
+
+결과는 json으로 캐싱되며, 캐시 파일 경로를 반환합니다.
+""",
+    tags={"ECOS", "통계", "항목", "세부항목", "한국은행"}
+)
+def get_ecos_statistic_item_list(params: dict) -> TextContent:
+    path = get_statistic_item_list(params)
+    return TextContent(type="text", text=str(path))
+
+@mcp.tool(
+    name="get_ecos_statistic_search",
+    description="""
+한국은행 ECOS 오픈API의 통계 데이터를 조회하고 캐싱합니다. (StatisticSearch)
+
+사용법 예시:
+get_ecos_statistic_search({"stat_code": "200Y101", "cycle": "A", "start_time": "2020", "end_time": "2023", "item_code1": null, "item_code2": null, "item_code3": null, "item_code4": null, "start": 1, "end": 100})
+- stat_code: 통계표코드(필수)
+- cycle: 주기(A, S, Q, M, SM, D)
+- start_time, end_time: 검색 시작/종료일자(주기에 맞는 형식)
+- item_code1~4: 통계항목코드(선택)
+- start, end: 조회 시작/종료 인덱스(기본 1~100)
+
+결과는 json으로 캐싱되며, 캐시 파일 경로를 반환합니다.
+""",
+    tags={"ECOS", "통계", "조회", "데이터", "한국은행"}
+)
+def get_ecos_statistic_search(params: dict) -> TextContent:
+    path = get_statistic_search(params)
+    return TextContent(type="text", text=str(path))
+
+@mcp.tool(
+    name="get_ecos_key_statistic_list",
+    description="""
+한국은행 ECOS 오픈API의 100대 통계지표를 조회하고 캐싱합니다. (KeyStatisticList)
+
+사용법 예시:
+get_ecos_key_statistic_list({"start": 1, "end": 100})
+- start, end: 조회 시작/종료 인덱스(기본 1~100)
+
+결과는 json으로 캐싱되며, 캐시 파일 경로와 pandas 요약(preview, 상위 5개 주요 컬럼)을 반환합니다.
+""",
+    tags={"ECOS", "통계", "100대지표", "주요지표", "한국은행"}
+)
+def get_ecos_key_statistic_list(params: dict) -> TextContent:
+    path = get_key_statistic_list(params)
+    if path is None:
+        return TextContent(type="text", text=json.dumps({"error": "Cache path is None. Check your parameters."}, ensure_ascii=False, indent=2))
+    try:
+        with open(str(path), "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # 실제 ECOS 응답 구조에 맞게 row 추출
+        if "KeyStatisticList" in data and "row" in data["KeyStatisticList"]:
+            rows = data["KeyStatisticList"]["row"]
+            df = pd.DataFrame(rows)
+            preview = df.head(5)[[c for c in df.columns if c in ["CLASS_NAME", "KEYSTAT_NAME", "DATA_VALUE", "CYCLE", "UNIT_NAME"] or c.lower().startswith("stat")]].to_dict(orient="records")
+            return TextContent(type="text", text=json.dumps({"cache_path": str(path), "preview": preview}, ensure_ascii=False, indent=2))
+        return TextContent(type="text", text=json.dumps({"cache_path": str(path), "preview": "No preview available"}, ensure_ascii=False, indent=2))
+    except Exception as e:
+        return TextContent(type="text", text=json.dumps({"cache_path": str(path), "error": str(e)}, ensure_ascii=False, indent=2))
