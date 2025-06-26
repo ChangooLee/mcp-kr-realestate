@@ -28,6 +28,7 @@ from mcp_kr_realestate.apis.ecos_api import (
     get_statistic_search,
     get_key_statistic_list,
 )
+from mcp_kr_realestate.utils.data_processor import get_cache_dir
 
 logger = logging.getLogger("mcp-kr-realestate")
 
@@ -123,7 +124,7 @@ def get_summary_cache_path(p: Path, property_type: Optional[str] = None, trade_t
     trade_type: 'trade', 'rent', None
     """
     # Set cache directory to the correct path relative to project root
-    cache_dir = Path(__file__).parent.parent / "utils/cache"
+    cache_dir = Path(get_cache_dir())
     cache_dir.mkdir(parents=True, exist_ok=True)
     # 상업/토지/창고(산업용)는 매매/전월세 구분 없이 하나의 summary
     if property_type in {"commercial", "land", "industrial"}:

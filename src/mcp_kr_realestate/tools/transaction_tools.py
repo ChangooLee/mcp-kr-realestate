@@ -23,6 +23,7 @@ from ..server import mcp, ctx, RealEstateContext
 from mcp.types import TextContent
 from ..utils.ctx_helper import with_context
 from ..utils.region_codes import get_region_code_df
+from mcp_kr_realestate.utils.data_processor import get_cache_dir
 
 # 각 API 모듈로부터 함수를 직접 임포트
 from ..apis.apt_rent import get_apt_rent_data as api_get_apt_rent
