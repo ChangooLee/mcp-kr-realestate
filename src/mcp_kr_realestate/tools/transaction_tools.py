@@ -43,7 +43,7 @@ def _fetch_and_save_as_json(
     file_prefix: str,
     region_code: str,
     year_month: str,
-    target_dir: str = "/tmp/realty_data"
+    target_dir: str = "src/mcp_kr_realestate/utils/cache"
 ) -> str:
     """
     API 함수를 호출하여 XML이 포함된 JSON 문자열을 받고,
@@ -77,10 +77,9 @@ def _fetch_and_save_as_json(
         
         df = pd.DataFrame(all_deals)
 
-        # 파일 경로 및 디렉토리 설정
+        # 파일 경로 및 디렉토리 설정 (utils/cache/raw_data)
         data_dir = Path(target_dir) / "raw_data"
         data_dir.mkdir(parents=True, exist_ok=True)
-        
         file_name = f"{file_prefix}_{region_code}_{year_month}.raw.data.json"
         file_path = data_dir / file_name
 
