@@ -16,7 +16,7 @@ from pathlib import Path
 import pandas as pd
 import xml.etree.ElementTree as ET
 import requests
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List
 import os
 
 from ..server import mcp, ctx, RealEstateContext
@@ -44,13 +44,18 @@ def _fetch_and_save_as_json(
     file_prefix: str,
     region_code: str,
     year_month: str,
-    target_dir: str = "src/mcp_kr_realestate/utils/cache"
+    target_dir: Optional[str] = None
 ) -> str:
     """
-    API 함수를 호출하여 XML이 포함된 JSON 문자열을 받고,
-    이를 파싱하여 최종적으로 raw.data.json 파일로 저장합니다.
+    공통: API 함수로부터 받은 데이터를 DataFrame으로 저장하고 경로 반환
     """
+    # 항상 src/mcp_kr_realestate/utils/cache/raw_data에 저장
+    if target_dir is None:
+        data_dir = Path(__file__).parent.parent / "utils" / "cache" / "raw_data"
+    else:
+        data_dir = Path(target_dir) / "raw_data"
     try:
+        data_dir.mkdir(parents=True, exist_ok=True)
         # API 함수 호출 (결과는 통계가 포함된 JSON 문자열)
         response_json_str = api_func(region_code, year_month)
         response_data = json.loads(response_json_str)
@@ -79,8 +84,6 @@ def _fetch_and_save_as_json(
         df = pd.DataFrame(all_deals)
 
         # 파일 경로 및 디렉토리 설정 (utils/cache/raw_data)
-        data_dir = Path(target_dir) / "raw_data"
-        data_dir.mkdir(parents=True, exist_ok=True)
         file_name = f"{file_prefix}_{region_code}_{year_month}.raw.data.json"
         file_path = data_dir / file_name
 
@@ -289,4 +292,55 @@ def get_officetel_rent_data(region_code: str, year_month: str) -> TextContent:
 )
 def get_land_trade_data(region_code: str, year_month: str) -> TextContent:
     result = _fetch_and_save_as_json(api_get_land_trade, "LAND_TRADE", region_code, year_month)
-    return TextContent(type="text", text=result) 
+    return TextContent(type="text", text=result)
+
+@mcp.tool(
+    name="get_transaction_cache_data",
+    description="""
+    Load cached real estate transaction data (raw_data) for any asset type (apartment, officetel, row house, single detached, land, industrial, etc.), region, and months, and filter by any field (e.g., apartment name, officetel name, etc.).
+    - asset_type: 'APT_TRADE', 'APT_RENT', 'OFFICETEL_TRADE', 'OFFICETEL_RENT', 'ROW_HOUSE_TRADE', 'ROW_HOUSE_RENT', 'SINGLE_DETACHED_HOUSE_TRADE', 'SINGLE_DETACHED_HOUSE_RENT', 'LAND_TRADE', 'INDU_TRADE', ...
+    - region_code: 5-digit legal dong code
+    - year_months: list of 'YYYYMM' (multiple months allowed)
+    - field_name: (optional) name of the field to filter (e.g., 'aptNm', 'officetelNm', 'rowHouseNm', etc.)
+    - field_value_substring: (optional) substring to search for in the field
+    Returns a preview (10 rows), total count, unique values for the filtered field, and cache files. Only summary/preview is returned for LLM efficiency. Works for all asset types and both trade and rent types.
+    """,
+    tags={"부동산", "실거래가", "캐시", "검색", "요약", "매매", "전월세", "임대", "임차"}
+)
+def get_transaction_cache_data(asset_type: str, region_code: str, year_months: List[str], field_name: Optional[str] = None, field_value_substring: Optional[str] = None) -> TextContent:
+    """
+    Load cached transaction data for any asset type, region, and months, with optional filtering by any field (e.g., apartment name, officetel name, etc.).
+    """
+    import pandas as pd
+    from pathlib import Path
+    import json
+    import os
+
+    cache_dir = Path(__file__).parent.parent / "utils" / "cache" / "raw_data"
+    dfs = []
+    for ym in year_months:
+        fname = f"{asset_type}_{region_code}_{ym}.raw.data.json"
+        fpath = cache_dir / fname
+        if fpath.exists():
+            try:
+                df = pd.read_json(fpath, lines=True)
+                df["_cache_file"] = str(fpath)
+                dfs.append(df)
+            except Exception as e:
+                continue
+    if not dfs:
+        return TextContent(type="text", text=json.dumps({"error": "No cached data found for the given criteria."}, ensure_ascii=False))
+    df_all = pd.concat(dfs, ignore_index=True)
+    # Optional generic field filter
+    if field_name and field_value_substring:
+        if field_name in df_all.columns:
+            df_all = df_all[df_all[field_name].astype(str).str.contains(field_value_substring, na=False)]
+    preview = df_all.head(10).to_dict(orient="records")
+    unique_values = list(df_all[field_name].dropna().unique()) if field_name and field_name in df_all.columns else []
+    result = {
+        "total_count": len(df_all),
+        "preview": preview,
+        "unique_values_for_field": unique_values,
+        "cache_files": list(set(df_all["_cache_file"]))
+    }
+    return TextContent(type="text", text=json.dumps(result, ensure_ascii=False)) 
