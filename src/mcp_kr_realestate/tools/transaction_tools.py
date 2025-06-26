@@ -343,4 +343,19 @@ def get_transaction_cache_data(asset_type: str, region_code: str, year_months: L
         "unique_values_for_field": unique_values,
         "cache_files": list(set(df_all["_cache_file"]))
     }
+    def normalize_amount(val):
+        # Convert to integer 원 단위 (만원 * 10,000)
+        if isinstance(val, str):
+            v = val.replace(",", "")
+            if v.replace(".", "").isdigit():
+                return int(float(v) * 10000)
+            return val
+        if isinstance(val, (float, int)):
+            return int(round(val * 10000))
+        return val
+    for row in preview:
+        if "dealAmount" in row:
+            row["dealAmount"] = normalize_amount(row["dealAmount"])
+        if "dealAmountNum" in row:
+            row["dealAmountNum"] = normalize_amount(row["dealAmountNum"])
     return TextContent(type="text", text=json.dumps(result, ensure_ascii=False)) 

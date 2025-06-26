@@ -6,6 +6,7 @@ import os
 import requests
 import json
 import pandas as pd
+from pathlib import Path
 
 REB_API_BASE = "https://www.reb.or.kr/r-one/openapi"
 REB_API_KEY = os.getenv("REB_API_KEY", "sample key")
@@ -16,11 +17,11 @@ def _reb_api_request(endpoint, params, cache_prefix):
     params["Type"] = "json"
     params.setdefault("pIndex", 1)
     params.setdefault("pSize", 100)
-    cache_dir = os.path.join(os.path.dirname(__file__), "../utils/cache")
-    os.makedirs(cache_dir, exist_ok=True)
+    cache_dir = Path(__file__).parent.parent / "utils" / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
     cache_key = f"{cache_prefix}_" + str(abs(hash(json.dumps(params, sort_keys=True, ensure_ascii=False)))) + ".json"
-    cache_path = os.path.join(cache_dir, cache_key)
-    if os.path.exists(cache_path):
+    cache_path = cache_dir / cache_key
+    if cache_path.exists():
         with open(cache_path, "r", encoding="utf-8") as f:
             return json.load(f)
     url = f"{REB_API_BASE}/{endpoint}"
@@ -70,9 +71,9 @@ def _reb_api_collect_all(endpoint, params, cache_prefix, page_size=100):
             break
         page += 1
     # 캐시 전체 저장
-    cache_dir = os.path.join(os.path.dirname(__file__), "../utils/cache")
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_path = os.path.join(cache_dir, f"{cache_prefix}_all.json")
+    cache_dir = Path(__file__).parent.parent / "utils" / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / f"{cache_prefix}_all.json"
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(all_results, f, ensure_ascii=False)
     return all_results
@@ -108,23 +109,22 @@ def get_reb_stat_data_all(params, page_size=100):
 
 def cache_stat_list_full(params, page_size=100):
     all_items = get_reb_stat_list_all(params, page_size=page_size)
-    cache_dir = os.path.join(os.path.dirname(__file__), "../utils/cache")
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_path = os.path.join(cache_dir, "stat_list_full.json")
+    cache_dir = Path(__file__).parent.parent / "utils" / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / "stat_list_full.json"
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(all_items, f, ensure_ascii=False)
     return cache_path
 
 def cache_stat_list(params, page_size=100):
-    # 필터링된 목록도 캐싱 (파라미터 해시로 파일명 구분)
     all_items = get_reb_stat_list_all(params, page_size=page_size)
-    cache_dir = os.path.join(os.path.dirname(__file__), "../utils/cache")
-    os.makedirs(cache_dir, exist_ok=True)
+    cache_dir = Path(__file__).parent.parent / "utils" / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
     key = str(abs(hash(json.dumps(params, sort_keys=True, ensure_ascii=False))))
-    cache_path = os.path.join(cache_dir, f"stat_list_{key}.json")
+    cache_path = cache_dir / f"stat_list_{key}.json"
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(all_items, f, ensure_ascii=False)
     return cache_path
 
 def _get_data_cache_path(statbl_id):
-    return os.path.join(os.path.dirname(__file__), "../utils/cache", f"stat_data_{statbl_id}.json") 
+    return str((Path(__file__).parent.parent / "utils" / "cache" / f"stat_data_{statbl_id}.json")) 

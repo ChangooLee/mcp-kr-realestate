@@ -1542,8 +1542,13 @@ get_ecos_statistic_search({"stat_code": "200Y101", "cycle": "A", "start_time": "
     tags={"ECOS", "통계", "조회", "데이터", "한국은행"}
 )
 def get_ecos_statistic_search(params: dict) -> TextContent:
+    from pathlib import Path
+    import json
     path = get_statistic_search(params)
-    return TextContent(type="text", text=str(path))
+    cache_path = Path(path)
+    if not cache_path.exists():
+        return TextContent(type="text", text=json.dumps({"error": f"Cache file not found. Expected at: {str(cache_path)}"}, ensure_ascii=False, indent=2))
+    return TextContent(type="text", text=str(cache_path))
 
 @mcp.tool(
     name="get_ecos_key_statistic_list",
@@ -1667,148 +1672,49 @@ def ensure_latest_keystatlist_cache():
 @mcp.tool(
     name="search_realestate_indicators",
     description="""
-키워드로 한국은행 ECOS의 부동산/금리/가계/투자/거시/심리지표 통계표를 검색하고, 관련 통계표/항목/최신 데이터까지 요약합니다.
+키워드로 한국은행 ECOS의 100대 주요 통계지표(KeyStatisticList)에서 부동산/금리/가계/투자/거시/심리지표를 검색하고, 관련 지표의 최신값만 요약합니다.
 
-- 사용법 예시: search_realestate_indicators({"keyword": "기준금리"})
-- 주요 추천 키워드: 주택매매가격지수, 기준금리, 가계신용, 건설투자증감률, 소비자심리지수 등
-- data_preview가 빈값이면: 해당 통계표는 시계열 데이터가 없거나, ECOS API에서 데이터가 제공되지 않는 경우입니다.
-- 키워드가 잘 안 맞으면: 더 구체적이거나 ECOS 공식 용어(예: '주택매매가격지수', '콜금리(익일물)')를 사용해보세요.
-- 통계표별 대표 항목/시계열이 궁금하면: 'items' 필드에서 ITM_NM(항목명)을 참고하세요.
-
-[실전 시나리오]
-1. 금리와 부동산 가격 동향 비교: '기준금리', '주택매매가격지수' 등으로 검색
-2. 대출/신용 동향: '가계신용', '예금은행대출금' 등으로 검색
-3. 공급/투자 동향: '건설투자증감률', '건축허가면적' 등으로 검색
-
-[2025년 예시 데이터]
-- keyword: "기준금리" → stat_name: "한국은행 기준금리", current_value: "2.5", cycle: "20250622"
-- keyword: "주택매매가격지수" → stat_name: "주택매매가격지수", current_value: "100", cycle: "202505"
-- keyword: "가계신용" → stat_name: "가계신용", current_value: "1928734.5", cycle: "2025Q1"
+- 이 도구는 무조건 100대 주요지표(KeyStatisticList) 기준으로만 응답합니다.
+- keyword: 지표명(예: '기준금리', '주택매매가격지수', '가계신용', '건설투자증감률', '소비자심리지수' 등)
+- 결과는 최신값, 단위, 기준일 등만 요약하여 반환합니다.
+- data_preview 등 시계열/항목 정보는 제공하지 않습니다.
+- 예시: search_realestate_indicators({"keyword": "기준금리"})
 """,
-    tags={"ECOS", "통합검색", "부동산", "통계", "자동수집", "추천지표"}
+    tags={"ECOS", "100대지표", "부동산", "통계", "자동수집", "추천지표"}
 )
 def search_realestate_indicators(params: dict) -> TextContent:
-    ensure_latest_keystatlist_cache()
-    import pandas as pd
-    from mcp_kr_realestate.apis.ecos_api import get_statistic_item_list, get_statistic_search
-    from difflib import SequenceMatcher
+    """
+    Always respond based on the 100 KeyStatisticList indicators, returning only filtered/summarized results from that list.
+    """
     keyword = params.get("keyword")
-    timerange = params.get("timerange")
     if not keyword:
         return TextContent(type="text", text=json.dumps({"error": "keyword 파라미터는 필수입니다."}, ensure_ascii=False))
-    # 1. 주요지표명 매핑 우선
-    mapped_name = REALESTATE_KEY_INDICATORS.get(keyword) or keyword
     keystat_name_to_row = load_keystat_name_to_row()
-    keystat_row = keystat_name_to_row.get(mapped_name)
-    result = []
-    if keystat_row:
-        result.append({
-            "stat_name": keystat_row.get("KEYSTAT_NAME"),
-            "class_name": keystat_row.get("CLASS_NAME"),
-            "current_value": keystat_row.get("DATA_VALUE"),
-            "cycle": keystat_row.get("CYCLE"),
-            "unit": keystat_row.get("UNIT_NAME")
-        })
-    try:
-        rows = _load_all_stat_table_rows()
-        def match_score(row):
-            name = row.get("STAT_NAME", "")
-            norm_name = _normalize_korean(name)
-            norm_kw = _normalize_korean(keyword)
-            ratio = SequenceMatcher(None, norm_name, norm_kw).ratio()
-            contains = norm_kw in norm_name
-            return (contains, ratio)
-        scored = sorted(rows, key=match_score, reverse=True)
-        matched = [r for r in scored if match_score(r)[0] or match_score(r)[1] > 0.5][:10]
-        for row in matched:
-            stat_code = row.get("STAT_CODE")
-            stat_name = row.get("STAT_NAME")
-            cycle = row.get("CYCLE") or "A"
-            # 2. 세부항목 조회
-            try:
-                item_path = get_statistic_item_list({"stat_code": stat_code, "start": 1, "end": 100})
-                with open(str(item_path), "r", encoding="utf-8") as f:
-                    item_data = json.load(f)
-                items = item_data.get("StatisticItemList", {}).get("row", [])
-                # 필터: itm_id/itm_nm 모두 null인 항목 제거
-                if isinstance(items, list):
-                    items = [
-                        {"itm_id": itm.get("ITM_ID"), "itm_nm": itm.get("ITM_NM")}
-                        for itm in items
-                        if (itm.get("ITM_ID") is not None and str(itm.get("ITM_ID")).strip() != "") or (itm.get("ITM_NM") is not None and str(itm.get("ITM_NM")).strip() != "")
-                    ]
-            except Exception as e:
-                items = f"항목 조회 실패: {e}"
-            # 3. 최신 데이터 조회 (timerange 미지정시 최근 3년)
-            try:
-                start_time, end_time = _ecos_timerange_to_dates(cycle, timerange)
-                data_path = get_statistic_search({
-                    "stat_code": stat_code,
-                    "cycle": cycle,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "item_code1": None,
-                    "item_code2": None,
-                    "item_code3": None,
-                    "item_code4": None,
-                    "start": 1,
-                    "end": 100
-                })
-                with open(str(data_path), "r", encoding="utf-8") as f:
-                    stat_data = json.load(f)
-                stat_rows = stat_data.get("StatisticSearch", {}).get("row", [])
-                df = pd.DataFrame(stat_rows)
-                preview = df.head(5).to_dict(orient="records") if not df.empty else []
-                # 최신값 추출 (가장 최근 TIME)
-                latest_ecos = None
-                if not df.empty and "TIME" in df.columns and "DATA_VALUE" in df.columns:
-                    latest_row = df.sort_values("TIME", ascending=False).iloc[0]
-                    latest_ecos = {"value": latest_row["DATA_VALUE"], "date": latest_row["TIME"]}
-                else:
-                    latest_ecos = None
-            except Exception as e:
-                preview = f"데이터 조회 실패: {e}"
-                latest_ecos = None
-            # KeyStatisticList.json에서의 최신값도 비교
-            keystat_row = None
-            keystat_name_to_row = load_keystat_name_to_row()
-            mapped_name = REALESTATE_KEY_INDICATORS.get(keyword) or keyword
-            keystat_row = keystat_name_to_row.get(mapped_name)
-            latest_keystat = None
-            if keystat_row:
-                latest_keystat = {"value": keystat_row.get("DATA_VALUE"), "date": keystat_row.get("CYCLE")}
-            # 최신값 비교
-            latest_value = None
-            latest_value_source = None
-            if latest_ecos and latest_keystat:
-                # 날짜 비교 (문자열이지만 YYYYMMDD, YYYYMM, YYYYQn 등, 단순 비교로 충분)
-                if str(latest_ecos["date"]) >= str(latest_keystat["date"]):
-                    latest_value = latest_ecos
-                    latest_value_source = "ECOS"
-                else:
-                    latest_value = latest_keystat
-                    latest_value_source = "KeyStatisticList"
-            elif latest_ecos:
-                latest_value = latest_ecos
-                latest_value_source = "ECOS"
-            elif latest_keystat:
-                latest_value = latest_keystat
-                latest_value_source = "KeyStatisticList"
-            # 결과에 최신값 정보 추가
-            result.append({
-                "stat_code": stat_code,
-                "stat_name": stat_name,
-                "cycle": cycle,
-                "items": items,
-                "data_preview": preview,
-                "latest_value": latest_value,
-                "latest_value_source": latest_value_source
-            })
-        if not result:
-            return TextContent(type="text", text=json.dumps({"error": "키워드와 유사한 통계표를 찾지 못했습니다.", "keyword": keyword}, ensure_ascii=False, indent=2))
-        return TextContent(type="text", text=json.dumps({"keyword": keyword, "results": result}, ensure_ascii=False, indent=2))
-    except Exception as e:
-        return TextContent(type="text", text=json.dumps({"error": f"통합검색 실패: {e}"}, ensure_ascii=False, indent=2))
+    # 유사도/포함 검색 (한글 정규화 포함)
+    def norm(s):
+        import unicodedata
+        return unicodedata.normalize("NFKC", str(s or "")).replace(" ", "")
+    norm_kw = norm(keyword)
+    matches = []
+    for name, row in keystat_name_to_row.items():
+        if norm_kw in norm(name) or norm_kw in norm(row.get("KEYSTAT_NAME", "")):
+            matches.append(row)
+    # 유사도 높은 순 정렬 (간단히 길이 차이 기준)
+    matches = sorted(matches, key=lambda r: abs(len(norm(r.get("KEYSTAT_NAME", ""))) - len(norm_kw)))
+    # 결과 요약
+    result = [
+        {
+            "stat_name": r.get("KEYSTAT_NAME"),
+            "class_name": r.get("CLASS_NAME"),
+            "current_value": r.get("DATA_VALUE"),
+            "cycle": r.get("CYCLE"),
+            "unit": r.get("UNIT_NAME")
+        }
+        for r in matches
+    ]
+    if not result:
+        return TextContent(type="text", text=json.dumps({"error": "No matching indicator found in the 100 KeyStatisticList.", "keyword": keyword}, ensure_ascii=False, indent=2))
+    return TextContent(type="text", text=json.dumps({"keyword": keyword, "results": result}, ensure_ascii=False, indent=2))
 
 # === [핵심 부동산/금리/가계/투자/거시/심리지표명 → ECOS KeyStatisticList 매핑] ===
 # 실제 stat_code는 ECOS StatisticTableList/KeyStatisticList에서 매핑 필요. 아래는 예시(실제 코드에서는 자동 매핑/검색도 지원)

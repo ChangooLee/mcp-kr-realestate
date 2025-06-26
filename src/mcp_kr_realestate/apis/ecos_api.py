@@ -12,7 +12,7 @@ import pandas as pd
 
 ECOS_API_KEY = os.getenv("ECOS_API_KEY")
 BASE_URL = "https://ecos.bok.or.kr/api"
-CACHE_DIR = Path(__file__).parent / "../utils/cache"
+CACHE_DIR = Path(__file__).parent.parent / "utils" / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
