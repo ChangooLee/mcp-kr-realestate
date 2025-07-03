@@ -344,18 +344,18 @@ def get_transaction_cache_data(asset_type: str, region_code: str, year_months: L
         "cache_files": list(set(df_all["_cache_file"]))
     }
     def normalize_amount(val):
-        # Convert to integer 원 단위 (만원 * 10,000)
+        # Remove commas, convert to float, multiply by 10,000, and return as int if possible, else return as is
         if isinstance(val, str):
             v = val.replace(",", "")
-            if v.replace(".", "").isdigit():
+            try:
                 return int(float(v) * 10000)
-            return val
+            except Exception:
+                return v
         if isinstance(val, (float, int)):
-            return int(round(val * 10000))
+            return int(val * 10000)
         return val
     for row in preview:
-        if "dealAmount" in row:
-            row["dealAmount"] = normalize_amount(row["dealAmount"])
-        if "dealAmountNum" in row:
-            row["dealAmountNum"] = normalize_amount(row["dealAmountNum"])
+        for k in list(row.keys()):
+            if k.lower().endswith('amount') or k.lower().endswith('amountnum'):
+                row[k] = normalize_amount(row[k])
     return TextContent(type="text", text=json.dumps(result, ensure_ascii=False)) 
