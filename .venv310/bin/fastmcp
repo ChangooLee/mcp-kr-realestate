@@ -1,4 +1,4 @@
-#!/Users/lchangoo/Workspace/mcp-kr-realestate/.venv310/bin/python3.10
+#!/Users/lchangoo/Workspace/mcp-kr-realestate/.venv310/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
