@@ -1,0 +1,1655 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Korean Real Estate MCP API",
+    "description": "한국 부동산 실거래가 데이터 조회 및 분석을 위한 MCP (Model Context Protocol) API 서버입니다. 국토교통부 실거래가 공개시스템, 한국은행 ECOS, 한국부동산원 R-ONE 등의 공공 API를 통합하여 제공합니다.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "Changoo Lee",
+      "email": "lchangoo@gmail.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://localhost:8000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "apartment",
+      "description": "아파트 실거래가 관련 API"
+    },
+    {
+      "name": "officetel",
+      "description": "오피스텔 실거래가 관련 API"
+    },
+    {
+      "name": "row-house",
+      "description": "연립/다세대 실거래가 관련 API"
+    },
+    {
+      "name": "single-house",
+      "description": "단독/다가구 실거래가 관련 API"
+    },
+    {
+      "name": "commercial",
+      "description": "상업업무용 부동산 실거래가 관련 API"
+    },
+    {
+      "name": "industrial",
+      "description": "공장/창고 등 산업용 부동산 실거래가 관련 API"
+    },
+    {
+      "name": "land",
+      "description": "토지 실거래가 관련 API"
+    },
+    {
+      "name": "region",
+      "description": "법정동 코드 조회 API"
+    },
+    {
+      "name": "ecos",
+      "description": "한국은행 ECOS 경제통계 API"
+    },
+    {
+      "name": "reb",
+      "description": "한국부동산원 R-ONE API"
+    }
+  ],
+  "paths": {
+    "/api/v1/apartment/trade": {
+      "get": {
+        "tags": ["apartment"],
+        "summary": "아파트 매매 실거래가 조회",
+        "description": "지정된 지역의 아파트 매매 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/apartment/rent": {
+      "get": {
+        "tags": ["apartment"],
+        "summary": "아파트 전월세 실거래가 조회",
+        "description": "지정된 지역의 아파트 전월세 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/officetel/trade": {
+      "get": {
+        "tags": ["officetel"],
+        "summary": "오피스텔 매매 실거래가 조회",
+        "description": "지정된 지역의 오피스텔 매매 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/officetel/rent": {
+      "get": {
+        "tags": ["officetel"],
+        "summary": "오피스텔 전월세 실거래가 조회",
+        "description": "지정된 지역의 오피스텔 전월세 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/row-house/trade": {
+      "get": {
+        "tags": ["row-house"],
+        "summary": "연립다세대 매매 실거래가 조회",
+        "description": "지정된 지역의 연립다세대 매매 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/row-house/rent": {
+      "get": {
+        "tags": ["row-house"],
+        "summary": "연립다세대 전월세 실거래가 조회",
+        "description": "지정된 지역의 연립다세대 전월세 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/single-house/trade": {
+      "get": {
+        "tags": ["single-house"],
+        "summary": "단독/다가구 매매 실거래가 조회",
+        "description": "지정된 지역의 단독/다가구 매매 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/single-house/rent": {
+      "get": {
+        "tags": ["single-house"],
+        "summary": "단독/다가구 전월세 실거래가 조회",
+        "description": "지정된 지역의 단독/다가구 전월세 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/commercial/trade": {
+      "get": {
+        "tags": ["commercial"],
+        "summary": "상업업무용 부동산 매매 실거래가 조회",
+        "description": "지정된 지역의 상업업무용 부동산 매매 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/industrial/trade": {
+      "get": {
+        "tags": ["industrial"],
+        "summary": "공장/창고 등 산업용 부동산 매매 실거래가 조회",
+        "description": "지정된 지역의 공장/창고 등 산업용 부동산 매매 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/land/trade": {
+      "get": {
+        "tags": ["land"],
+        "summary": "토지 매매 실거래가 조회",
+        "description": "지정된 지역의 토지 매매 실거래가 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "lawd_cd",
+            "in": "query",
+            "required": true,
+            "description": "법정동코드 5자리",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$",
+              "example": "11680"
+            }
+          },
+          {
+            "name": "deal_ymd",
+            "in": "query",
+            "required": true,
+            "description": "거래년월 (YYYYMM 형식)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202506"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/region/codes": {
+      "get": {
+        "tags": ["region"],
+        "summary": "법정동 코드 목록 조회",
+        "description": "국토교통부 전국 법정동 코드 목록을 조회합니다.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "페이지 번호",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "required": false,
+            "description": "페이지당 데이터 수",
+            "schema": {
+              "type": "integer",
+              "default": 1000,
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "returnType",
+            "in": "query",
+            "required": false,
+            "description": "응답 데이터 타입",
+            "schema": {
+              "type": "string",
+              "enum": ["JSON", "XML"],
+              "default": "JSON"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegionCodeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/ecos/statistic-table-list": {
+      "get": {
+        "tags": ["ecos"],
+        "summary": "ECOS 서비스 통계 목록 조회",
+        "description": "한국은행 ECOS API를 통해 서비스 통계 목록을 조회합니다.",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "조회 시작 위치",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "조회 종료 위치",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcosResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/ecos/statistic-word": {
+      "get": {
+        "tags": ["ecos"],
+        "summary": "ECOS 통계용어사전 조회",
+        "description": "한국은행 ECOS API를 통해 통계용어사전을 조회합니다.",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "조회 시작 위치",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "조회 종료 위치",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "word",
+            "in": "query",
+            "required": false,
+            "description": "검색할 용어",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcosResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/ecos/statistic-item-list": {
+      "get": {
+        "tags": ["ecos"],
+        "summary": "ECOS 통계 세부항목 목록 조회",
+        "description": "한국은행 ECOS API를 통해 통계 세부항목 목록을 조회합니다.",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "조회 시작 위치",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "조회 종료 위치",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "stat_code",
+            "in": "query",
+            "required": true,
+            "description": "통계표코드",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcosResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/ecos/statistic-search": {
+      "get": {
+        "tags": ["ecos"],
+        "summary": "ECOS 통계 데이터 조회",
+        "description": "한국은행 ECOS API를 통해 통계 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "조회 시작 위치",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "조회 종료 위치",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "stat_code",
+            "in": "query",
+            "required": true,
+            "description": "통계표코드",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cycle",
+            "in": "query",
+            "required": true,
+            "description": "주기 (A:년, Q:분기, M:월, D:일)",
+            "schema": {
+              "type": "string",
+              "enum": ["A", "Q", "M", "D"]
+            }
+          },
+          {
+            "name": "start_time",
+            "in": "query",
+            "required": true,
+            "description": "검색시작시점",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202401"
+            }
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "required": true,
+            "description": "검색종료시점",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$",
+              "example": "202412"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcosResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/ecos/key-statistic-list": {
+      "get": {
+        "tags": ["ecos"],
+        "summary": "ECOS 100대 통계지표 조회",
+        "description": "한국은행 ECOS API를 통해 100대 통계지표를 조회합니다.",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "조회 시작 위치",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "조회 종료 위치",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcosResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/reb/stat-list": {
+      "get": {
+        "tags": ["reb"],
+        "summary": "한국부동산원 통계 목록 조회",
+        "description": "한국부동산원 R-ONE API를 통해 통계 목록을 조회합니다.",
+        "parameters": [
+          {
+            "name": "pIndex",
+            "in": "query",
+            "required": false,
+            "description": "페이지 번호",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pSize",
+            "in": "query",
+            "required": false,
+            "description": "페이지당 데이터 수",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RebResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/reb/stat-items": {
+      "get": {
+        "tags": ["reb"],
+        "summary": "한국부동산원 통계 세부항목 조회",
+        "description": "한국부동산원 R-ONE API를 통해 통계 세부항목을 조회합니다.",
+        "parameters": [
+          {
+            "name": "pIndex",
+            "in": "query",
+            "required": false,
+            "description": "페이지 번호",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pSize",
+            "in": "query",
+            "required": false,
+            "description": "페이지당 데이터 수",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RebResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    },
+    "/api/v1/reb/stat-data": {
+      "get": {
+        "tags": ["reb"],
+        "summary": "한국부동산원 통계 데이터 조회",
+        "description": "한국부동산원 R-ONE API를 통해 통계 데이터를 조회합니다.",
+        "parameters": [
+          {
+            "name": "pIndex",
+            "in": "query",
+            "required": false,
+            "description": "페이지 번호",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pSize",
+            "in": "query",
+            "required": false,
+            "description": "페이지당 데이터 수",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RebResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청"
+          },
+          "500": {
+            "description": "서버 오류"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TradeResponse": {
+        "type": "object",
+        "properties": {
+          "byDong": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DongTradeData"
+            },
+            "description": "동별 거래 데이터"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaData"
+          }
+        },
+        "required": ["byDong", "meta"]
+      },
+      "RentResponse": {
+        "type": "object",
+        "properties": {
+          "byDong": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DongRentData"
+            },
+            "description": "동별 전월세 데이터"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaData"
+          }
+        },
+        "required": ["byDong", "meta"]
+      },
+      "DongTradeData": {
+        "type": "object",
+        "properties": {
+          "dong": {
+            "type": "string",
+            "description": "법정동명"
+          },
+          "count": {
+            "type": "integer",
+            "description": "거래 건수"
+          },
+          "avgAmount": {
+            "type": "number",
+            "description": "평균 거래금액 (만원)"
+          },
+          "avgAmountEok": {
+            "type": "number",
+            "description": "평균 거래금액 (억원)"
+          },
+          "maxAmount": {
+            "type": "number",
+            "description": "최고 거래금액 (만원)"
+          },
+          "maxAmountEok": {
+            "type": "number",
+            "description": "최고 거래금액 (억원)"
+          },
+          "minAmount": {
+            "type": "number",
+            "description": "최저 거래금액 (만원)"
+          },
+          "minAmountEok": {
+            "type": "number",
+            "description": "최저 거래금액 (억원)"
+          },
+          "deals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TradeDeal"
+            },
+            "description": "개별 거래 목록"
+          }
+        },
+        "required": ["dong", "count", "deals"]
+      },
+      "DongRentData": {
+        "type": "object",
+        "properties": {
+          "dong": {
+            "type": "string",
+            "description": "법정동명"
+          },
+          "jeonse": {
+            "$ref": "#/components/schemas/JeonseData"
+          },
+          "wolse": {
+            "$ref": "#/components/schemas/WolseData"
+          }
+        },
+        "required": ["dong"]
+      },
+      "JeonseData": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "전세 거래 건수"
+          },
+          "avgDeposit": {
+            "type": "number",
+            "description": "평균 보증금 (만원)"
+          },
+          "avgDepositEok": {
+            "type": "number",
+            "description": "평균 보증금 (억원)"
+          },
+          "maxDeposit": {
+            "type": "number",
+            "description": "최고 보증금 (만원)"
+          },
+          "maxDepositEok": {
+            "type": "number",
+            "description": "최고 보증금 (억원)"
+          },
+          "minDeposit": {
+            "type": "number",
+            "description": "최저 보증금 (만원)"
+          },
+          "minDepositEok": {
+            "type": "number",
+            "description": "최저 보증금 (억원)"
+          },
+          "deals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentDeal"
+            },
+            "description": "개별 전세 거래 목록"
+          }
+        }
+      },
+      "WolseData": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "월세 거래 건수"
+          },
+          "avgDeposit": {
+            "type": "number",
+            "description": "평균 보증금 (만원)"
+          },
+          "avgDepositEok": {
+            "type": "number",
+            "description": "평균 보증금 (억원)"
+          },
+          "maxDeposit": {
+            "type": "number",
+            "description": "최고 보증금 (만원)"
+          },
+          "maxDepositEok": {
+            "type": "number",
+            "description": "최고 보증금 (억원)"
+          },
+          "minDeposit": {
+            "type": "number",
+            "description": "최저 보증금 (만원)"
+          },
+          "minDepositEok": {
+            "type": "number",
+            "description": "최저 보증금 (억원)"
+          },
+          "avgRent": {
+            "type": "number",
+            "description": "평균 월세 (만원)"
+          },
+          "maxRent": {
+            "type": "number",
+            "description": "최고 월세 (만원)"
+          },
+          "minRent": {
+            "type": "number",
+            "description": "최저 월세 (만원)"
+          },
+          "deals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentDeal"
+            },
+            "description": "개별 월세 거래 목록"
+          }
+        }
+      },
+      "TradeDeal": {
+        "type": "object",
+        "properties": {
+          "거래금액": {
+            "type": "string",
+            "description": "거래금액 (만원, 콤마 포함)"
+          },
+          "건축년도": {
+            "type": "string",
+            "description": "건축년도"
+          },
+          "년": {
+            "type": "string",
+            "description": "거래년도"
+          },
+          "법정동": {
+            "type": "string",
+            "description": "법정동명"
+          },
+          "아파트": {
+            "type": "string",
+            "description": "아파트명"
+          },
+          "월": {
+            "type": "string",
+            "description": "거래월"
+          },
+          "일": {
+            "type": "string",
+            "description": "거래일"
+          },
+          "전용면적": {
+            "type": "string",
+            "description": "전용면적 (㎡)"
+          },
+          "지번": {
+            "type": "string",
+            "description": "지번"
+          },
+          "층": {
+            "type": "string",
+            "description": "층수"
+          },
+          "dealAmountNum": {
+            "type": "number",
+            "description": "거래금액 (숫자형, 만원)"
+          },
+          "areaNum": {
+            "type": "number",
+            "description": "전용면적 (숫자형, ㎡)"
+          },
+          "buildYearNum": {
+            "type": "number",
+            "description": "건축년도 (숫자형)"
+          },
+          "floorNum": {
+            "type": "number",
+            "description": "층수 (숫자형)"
+          },
+          "dealDayNum": {
+            "type": "number",
+            "description": "거래일 (숫자형)"
+          }
+        }
+      },
+      "RentDeal": {
+        "type": "object",
+        "properties": {
+          "보증금액": {
+            "type": "string",
+            "description": "보증금액 (만원, 콤마 포함)"
+          },
+          "월세금액": {
+            "type": "string",
+            "description": "월세금액 (만원, 콤마 포함)"
+          },
+          "건축년도": {
+            "type": "string",
+            "description": "건축년도"
+          },
+          "년": {
+            "type": "string",
+            "description": "거래년도"
+          },
+          "법정동": {
+            "type": "string",
+            "description": "법정동명"
+          },
+          "아파트": {
+            "type": "string",
+            "description": "아파트명"
+          },
+          "월": {
+            "type": "string",
+            "description": "거래월"
+          },
+          "일": {
+            "type": "string",
+            "description": "거래일"
+          },
+          "전용면적": {
+            "type": "string",
+            "description": "전용면적 (㎡)"
+          },
+          "지번": {
+            "type": "string",
+            "description": "지번"
+          },
+          "층": {
+            "type": "string",
+            "description": "층수"
+          },
+          "depositNum": {
+            "type": "number",
+            "description": "보증금액 (숫자형, 만원)"
+          },
+          "rentFeeNum": {
+            "type": "number",
+            "description": "월세금액 (숫자형, 만원)"
+          },
+          "areaNum": {
+            "type": "number",
+            "description": "전용면적 (숫자형, ㎡)"
+          },
+          "buildYearNum": {
+            "type": "number",
+            "description": "건축년도 (숫자형)"
+          },
+          "floorNum": {
+            "type": "number",
+            "description": "층수 (숫자형)"
+          },
+          "dealDayNum": {
+            "type": "number",
+            "description": "거래일 (숫자형)"
+          }
+        }
+      },
+      "MetaData": {
+        "type": "object",
+        "properties": {
+          "lawd_cd": {
+            "type": "string",
+            "description": "법정동코드"
+          },
+          "deal_ymd": {
+            "type": "string",
+            "description": "거래년월"
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "전체 데이터 건수"
+          }
+        },
+        "required": ["lawd_cd", "deal_ymd", "totalCount"]
+      },
+      "RegionCodeResponse": {
+        "type": "object",
+        "properties": {
+          "currentCount": {
+            "type": "integer",
+            "description": "현재 페이지 데이터 수"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegionCode"
+            },
+            "description": "법정동 코드 목록"
+          },
+          "matchCount": {
+            "type": "integer",
+            "description": "전체 매칭 데이터 수"
+          },
+          "page": {
+            "type": "integer",
+            "description": "현재 페이지 번호"
+          },
+          "perPage": {
+            "type": "integer",
+            "description": "페이지당 데이터 수"
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "전체 데이터 수"
+          }
+        }
+      },
+      "RegionCode": {
+        "type": "object",
+        "properties": {
+          "법정동코드": {
+            "type": "string",
+            "description": "법정동코드 10자리"
+          },
+          "시도명": {
+            "type": "string",
+            "description": "시도명"
+          },
+          "시군구명": {
+            "type": "string",
+            "description": "시군구명"
+          },
+          "읍면동명": {
+            "type": "string",
+            "description": "읍면동명"
+          },
+          "생성일자": {
+            "type": "string",
+            "description": "생성일자"
+          },
+          "말소일자": {
+            "type": "string",
+            "description": "말소일자"
+          }
+        }
+      },
+      "EcosResponse": {
+        "type": "object",
+        "properties": {
+          "RESULT": {
+            "type": "object",
+            "properties": {
+              "CODE": {
+                "type": "string",
+                "description": "결과 코드"
+              },
+              "MESSAGE": {
+                "type": "string",
+                "description": "결과 메시지"
+              }
+            }
+          },
+          "StatisticTableList": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "통계표 목록"
+          },
+          "StatisticWord": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "통계용어 목록"
+          },
+          "StatisticItemList": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "통계 세부항목 목록"
+          },
+          "StatisticSearch": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "통계 데이터"
+          },
+          "KeyStatisticList": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "100대 통계지표 목록"
+          }
+        }
+      },
+      "RebResponse": {
+        "type": "object",
+        "properties": {
+          "SttsApiTbl": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "row": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "description": "한국부동산원 통계 데이터"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "list": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "오류 메시지"
+          },
+          "status_code": {
+            "type": "integer",
+            "description": "HTTP 상태 코드"
+          }
+        },
+        "required": ["error"]
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "serviceKey",
+        "description": "공공데이터포털 API 키"
+      },
+      "EcosApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "한국은행 ECOS API 키"
+      },
+      "RebApiKeyAuth": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "KEY",
+        "description": "한국부동산원 R-ONE API 키"
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+} 
