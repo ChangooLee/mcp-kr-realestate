@@ -23,13 +23,16 @@ class NRGTradeAPI:
         """
         상업업무용 부동산 매매 실거래가 전체 데이터 조회 및 처리 (apt_trade.py 기준)
         Args:
-            lawd_cd (str): 법정동코드 5자리
+            lawd_cd (str): 법정동코드 (5자리 이상, 앞 5자리만 사용)
             deal_ymd (str): 거래년월 (YYYYMM)
         Returns:
             str: 전체 거래 데이터와 통계가 포함된 JSON 문자열
         """
         if not self.api_key:
             raise ValueError("환경변수 PUBLIC_DATA_API_KEY_ENCODED가 설정되어 있지 않습니다.")
+
+        # 법정동코드 앞 5자리만 사용
+        lawd_cd = str(lawd_cd)[:5]
 
         base_url = "https://apis.data.go.kr/1613000/RTMSDataSvcNrgTrade/getRTMSDataSvcNrgTrade"
         

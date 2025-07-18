@@ -15,7 +15,7 @@ def get_sh_rent_data(lawd_cd: str, deal_ymd: str) -> str:
     """
     단독/다가구 전월세 실거래가 API 호출 및 전체 데이터 JSON+통계 반환 (curl subprocess + requests fallback, 반복 수집)
     Args:
-        lawd_cd (str): 법정동코드 5자리
+        lawd_cd (str): 법정동코드 (5자리 이상, 앞 5자리만 사용)
         deal_ymd (str): 거래년월 (YYYYMM)
     Returns:
         str: 전체 거래 데이터와 통계가 포함된 JSON 문자열
@@ -23,6 +23,9 @@ def get_sh_rent_data(lawd_cd: str, deal_ymd: str) -> str:
     api_key = os.environ.get("PUBLIC_DATA_API_KEY_ENCODED")
     if not api_key:
         raise ValueError("환경변수 PUBLIC_DATA_API_KEY_ENCODED가 설정되어 있지 않습니다.")
+
+    # 법정동코드 앞 5자리만 사용
+    lawd_cd = str(lawd_cd)[:5]
 
     base_url = "https://apis.data.go.kr/1613000/RTMSDataSvcSHRent/getRTMSDataSvcSHRent"
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
