@@ -80,7 +80,11 @@ def clean_deal_for_display(series):
     for k in list(deal_dict.keys()):
         if k in ['dealAmount', 'dealAmountNum', '보증금', 'deposit', '보증금액', '월세', 'monthlyRent', '월세액', 'rentFee', 'rentFeeNum']:
             try:
-                v = float(deal_dict[k]) if deal_dict[k] is not None else None
+                # Remove commas if it's a string, then convert to float
+                if isinstance(deal_dict[k], str):
+                    v = float(deal_dict[k].replace(',', '')) if deal_dict[k] is not None else None
+                else:
+                    v = float(deal_dict[k]) if deal_dict[k] is not None else None
             except Exception:
                 continue
             deal_dict[k] = as_value_unit(v, "만원")
