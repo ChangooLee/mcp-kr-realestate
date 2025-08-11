@@ -18,12 +18,12 @@ MCP Real Estate is a Model Context Protocol (MCP) server for advanced real estat
 
 ## Key Features
 
-- **🏢 Multi-asset support**: Apartments, officetels, single/multi-family, commercial, industrial, land, etc.
-- **📊 Real-time data**: Integrated with MOLIT, ECOS, and other public APIs
-- **🌍 Nationwide analytics**: Regional transaction data, macro indicators, correlation analysis
-- **🤖 AI report generation**: (Planned) Automated investment analysis reports
-- **📈 Advanced analytics**: Transaction statistics, ECOS search, real estate-macro correlation/regression
-- **🛡️ Robust caching**: Automatic data caching and fallback for API outages
+- **🏢 Comprehensive Multi-Asset Coverage**: Complete support for 7 asset classes - apartments, officetels, single/multi-family homes, row houses, commercial properties, industrial facilities (factories/warehouses), and land with both sales and rental transaction data
+- **📊 Real-time Data Integration**: Seamless integration with Korea Ministry of Land's Public Data Portal and Bank of Korea ECOS APIs for live market data
+- **🌍 Nationwide Geographic Coverage**: Legal dong-level regional analysis with support for Bank of Korea's top 100 macroeconomic indicators
+- **🤖 AI-Native Architecture**: Built on Model Context Protocol (MCP) for direct integration with Claude, GPT, and other AI models
+- **📈 Advanced Statistical Analytics**: Asset-specific price statistics, price-per-pyeong analysis, segmented analysis by building characteristics and location
+- **🛡️ Smart Caching System**: Automated data caching, duplicate request prevention, and cache fallback during API outages
 
 ---
 
@@ -58,14 +58,13 @@ pip install -e .
 
 Example `.env` file:
 ```env
-PUBLIC_DATA_API_KEY=your_public_data_api_key
+PUBLIC_DATA_API_KEY_ENCODED=your_public_data_api_key_url_encoded
 ECOS_API_KEY=your_ecos_api_key
-SEOUL_DATA_API_KEY=your_seoul_api_key
-KOSIS_API_KEY=your_kosis_api_key
 HOST=0.0.0.0
-PORT=8000
+PORT=8001
 TRANSPORT=stdio
 LOG_LEVEL=INFO
+MCP_SERVER_NAME=kr-realestate-mcp
 ```
 
 ---
@@ -87,101 +86,134 @@ summary = analyze_apartment_trade(file_path=result.text)
 print(summary.text)  # Returns statistical summary as JSON
 ```
 
-### 2. ECOS Integrated Search & Correlation Analysis
+### 2. ECOS Economic Indicators Search & Utilization
 
 ```python
-from mcp_kr_realestate.tools.analysis_tools import search_realestate_indicators, analyze_correlation_with_realestate
+from mcp_kr_realestate.tools.analysis_tools import search_realestate_indicators, get_ecos_key_statistic_list
 
-# 1. Search for key economic indicators (e.g., interest rate)
-search_result = search_realestate_indicators({"keyword": "Base Rate"})
-print(search_result.text)  # Related tables, data preview, recommended stat_code
+# 1. Search for real estate related economic indicators
+search_result = search_realestate_indicators({"keyword": "Housing Price Index"})
+print(search_result.text)  # Latest values, units, reference dates
 
-# 2. Correlation analysis between real estate price and interest rate (2025 example)
-params = {
-    "realestate_type": "apartment",
-    "region_code": "11680",
-    "stat_code": "722Y001",  # (e.g., base rate)
-    "cycle": "M",
-    "start_time": "202401",
-    "end_time": "202505"
-}
-corr_result = analyze_correlation_with_realestate(params)
-print(corr_result.text)  # Correlation, regression, aligned data, etc.
+# 2. Retrieve ECOS top 100 key indicators list
+key_stats = get_ecos_key_statistic_list({"start": 1, "end": 100})
+print(key_stats.text)  # Cache file path and key indicators preview
+
+# 3. Query specific statistical data (e.g., base rate)
+from mcp_kr_realestate.tools.analysis_tools import get_ecos_statistic_search
+ecos_data = get_ecos_statistic_search({
+    "stat_code": "722Y001", 
+    "cycle": "M", 
+    "start_time": "202401", 
+    "end_time": "202412"
+})
+print(ecos_data.text)  # Cached data file path
 ```
 
-### 3. Caching & File Usage
+### 3. Caching, Auto-refresh & File Path Utilization
 
-- All data is automatically cached under `/src/mcp_kr_realestate/utils/cache/`
-- Analysis tools return only file paths; load with pandas or any text editor
+- All data is automatically saved/refreshed in `/src/mcp_kr_realestate/utils/cache/`
+- Analysis tools return only cache file paths → can be directly loaded with pandas or other tools
 
 ---
 
-## 🧰 Main Tools
+## 🧰 Main Tools Overview
 
-### Transaction Data Collection
-
-| Tool | Description | Parameters | Returns |
-|------|-------------|------------|---------|
-| get_region_codes | Search legal district codes by region name | region_name | Code list (preview) |
-| get_apt_trade_data | Collect apartment sales data | region_code, year_month | JSON file path |
-| get_apt_rent_data | Collect apartment rent data | region_code, year_month | JSON file path |
-| get_officetel_trade_data | Collect officetel sales data | region_code, year_month | JSON file path |
-| get_officetel_rent_data | Collect officetel rent data | region_code, year_month | JSON file path |
-| get_single_detached_house_trade_data | Collect single/multi-family sales data | region_code, year_month | JSON file path |
-| get_single_detached_house_rent_data | Collect single/multi-family rent data | region_code, year_month | JSON file path |
-| get_row_house_trade_data | Collect row house sales data | region_code, year_month | JSON file path |
-| get_row_house_rent_data | Collect row house rent data | region_code, year_month | JSON file path |
-| get_commercial_property_trade_data | Collect commercial property sales data | region_code, year_month | JSON file path |
-| get_industrial_property_trade_data | Collect industrial (factory/warehouse) sales data | region_code, year_month | JSON file path |
-| get_land_trade_data | Collect land sales data | region_code, year_month | JSON file path |
-
-### Transaction Data Analysis
+### 📋 Transaction Data Collection Tools (13 tools)
 
 | Tool | Description | Parameters | Returns |
 |------|-------------|------------|---------|
-| analyze_apartment_trade | Analyze apartment sales data | file_path | Statistical summary JSON |
-| analyze_apartment_rent | Analyze apartment rent data | file_path | Statistical summary JSON |
-| analyze_officetel_trade | Analyze officetel sales data | file_path | Statistical summary JSON |
-| analyze_officetel_rent | Analyze officetel rent data | file_path | Statistical summary JSON |
-| analyze_single_detached_house_trade | Analyze single/multi-family sales data | file_path | Statistical summary JSON |
-| analyze_single_detached_house_rent | Analyze single/multi-family rent data | file_path | Statistical summary JSON |
-| analyze_row_house_trade | Analyze row house sales data | file_path | Statistical summary JSON |
-| analyze_row_house_rent | Analyze row house rent data | file_path | Statistical summary JSON |
-| analyze_commercial_property_trade | Analyze commercial property sales data | file_path | Statistical summary JSON |
-| analyze_industrial_property_trade | Analyze industrial sales data | file_path | Statistical summary JSON |
-| analyze_land_trade | Analyze land sales data | file_path | Statistical summary JSON |
+| **get_region_codes** | Search legal district codes by region name | region_name | Code list (preview 5 items) |
+| **get_apt_trade_data** | Collect apartment sales data | region_code, year_month | JSON file path |
+| **get_apt_rent_data** | Collect apartment rent data | region_code, year_month | JSON file path |
+| **get_officetel_trade_data** | Collect officetel sales data | region_code, year_month | JSON file path |
+| **get_officetel_rent_data** | Collect officetel rent data | region_code, year_month | JSON file path |
+| **get_single_detached_house_trade_data** | Collect single/multi-family sales data | region_code, year_month | JSON file path |
+| **get_single_detached_house_rent_data** | Collect single/multi-family rent data | region_code, year_month | JSON file path |
+| **get_row_house_trade_data** | Collect row house sales data | region_code, year_month | JSON file path |
+| **get_row_house_rent_data** | Collect row house rent data | region_code, year_month | JSON file path |
+| **get_commercial_property_trade_data** | Collect commercial property sales data | region_code, year_month | JSON file path |
+| **get_industrial_property_trade_data** | Collect industrial (factory/warehouse) sales data | region_code, year_month | JSON file path |
+| **get_land_trade_data** | Collect land sales data | region_code, year_month | JSON file path |
+| **get_transaction_cache_data** | Search/filter cached transaction data | asset_type, region_code, year_months, field_name, field_value_substring | Preview + statistics summary |
 
-### ECOS/Macro Indicator Tools
+### 📊 Transaction Data Analysis Tools (11 tools)
 
 | Tool | Description | Parameters | Returns |
 |------|-------------|------------|---------|
-| get_ecos_statistic_table_list | Cache ECOS statistic table list | start, end, stat_code | Cache file path |
-| get_ecos_statistic_word | Cache ECOS glossary | word, start, end | Cache file path |
-| get_ecos_statistic_item_list | Cache ECOS item list | stat_code, start, end | Cache file path |
-| get_ecos_statistic_search | Query/cache ECOS data | stat_code, cycle, start_time, end_time, item_code1~4 | Cache file path |
-| get_ecos_key_statistic_list | Cache ECOS 100 key indicators | start, end | Cache file path + pandas preview |
-| search_realestate_indicators | Integrated search for real estate/macro indicators | keyword | Related tables, data preview |
-| analyze_correlation_with_realestate | Correlation/regression between real estate and macro | realestate_type, region_code, stat_code, cycle, start_time, end_time | Correlation, regression, aligned data |
+| **analyze_apartment_trade** | Analyze apartment sales data | file_path | Statistical summary JSON (by complex/dong/price stats) |
+| **analyze_apartment_rent** | Analyze apartment rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
+| **analyze_officetel_trade** | Analyze officetel sales data | file_path | Statistical summary JSON (by complex/dong/price stats) |
+| **analyze_officetel_rent** | Analyze officetel rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
+| **analyze_single_detached_house_trade** | Analyze single/multi-family sales data | file_path | Statistical summary JSON (by building/dong/gross floor area) |
+| **analyze_single_detached_house_rent** | Analyze single/multi-family rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
+| **analyze_row_house_trade** | Analyze row house sales data | file_path | Statistical summary JSON (by complex/dong/exclusive area) |
+| **analyze_row_house_rent** | Analyze row house rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
+| **analyze_commercial_property_trade** | Analyze commercial property sales data | file_path | Statistical summary JSON (by use type/location/building features) |
+| **analyze_industrial_property_trade** | Analyze industrial sales data | file_path | Statistical summary JSON (by use type/dong/building features) |
+| **analyze_land_trade** | Analyze land sales data | file_path | Statistical summary JSON (by land type/dong/land area) |
+
+### 🏦 ECOS/Macro Indicator Tools (6 tools)
+
+| Tool | Description | Parameters | Returns |
+|------|-------------|------------|---------|
+| **get_ecos_statistic_table_list** | Query and cache ECOS statistic table list | start, end, stat_code | Cache file path |
+| **get_ecos_statistic_word** | Query and cache ECOS statistical glossary | word, start, end | Cache file path |
+| **get_ecos_statistic_item_list** | Query and cache ECOS statistic item list | stat_code, start, end | Cache file path |
+| **get_ecos_statistic_search** | Query and cache ECOS statistical data | stat_code, cycle, start_time, end_time, item_code1~4 | Cache file path |
+| **get_ecos_key_statistic_list** | Query and cache ECOS 100 key indicators | start, end | Cache file path + pandas preview |
+| **search_realestate_indicators** | Keyword search in 100 key indicators for real estate/interest rate/macro indicators | keyword | Latest values, units, reference dates |
+
+> **📌 Correlation Analysis Tool**: Real estate-macro correlation/regression analysis tool is currently under development.
 
 > For detailed parameters, return values, and examples, see the docstrings in `src/mcp_kr_realestate/tools/analysis_tools.py`.
 
 ---
 
-## 🖥️ Multi-platform & IDE/AI Integration
+## 🖥️ MCP Client Integration Guide
 
-- Supports macOS, Windows, Linux
-- For AI IDEs (e.g., Claude Desktop):
-  - `"command": "/your/path/.venv/bin/mcp-kr-realestate"`
-  - Set environment variables via `.env` or config
+### Claude Desktop Integration
+```json
+{
+  "mcpServers": {
+    "kr-realestate": {
+      "command": "/your/path/.venv/bin/mcp-kr-realestate",
+      "env": {
+        "PUBLIC_DATA_API_KEY_ENCODED": "your_api_key_here",
+        "ECOS_API_KEY": "your_ecos_key_here"
+      }
+    }
+  }
+}
+```
+
+### Supported Platforms
+- **macOS**: Both Intel and Apple Silicon supported
+- **Windows**: Windows 10/11 supported
+- **Linux**: Ubuntu 20.04+ supported
+
+### Required Dependencies
+- Python 3.10+
+- requests, pandas, python-dotenv
+- fastmcp 2.2.3, mcp 1.6.0
 
 ---
 
-## ⚠️ Notes & FAQ
+## ⚠️ Important Notes
 
-- API keys must be set in `.env` before use
-- Cache files are managed automatically; you may delete/refresh as needed
-- If data is missing or analysis fails, a detailed error message is returned
-- Unimplemented features (portfolio optimization, risk analysis, auto-reporting, etc.) are marked as "Planned"
+### API Key Setup
+1. **Public Data Portal API Key**: Obtain from [data.go.kr](https://data.go.kr) (URL encoding required)
+2. **ECOS API Key**: Obtain from [Bank of Korea ECOS](https://ecos.bok.or.kr)
+
+### Data Management
+- All data is automatically cached in `src/mcp_kr_realestate/utils/cache/`
+- Cache files are auto-refreshed every 24 hours
+- Manual cache deletion/refresh is supported
+
+### Known Limitations
+- **Regional Data**: Empty results returned for regions/periods with no transactions
+- **API Response Time**: Large data queries may take 1-3 seconds
+- **Features in Development**: Real estate-macro correlation analysis, portfolio optimization, AI report generation
 
 ---
 
