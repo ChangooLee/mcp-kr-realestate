@@ -121,48 +121,48 @@ print(ecos_data.text)  # Cached data file path
 
 ### 📋 Transaction Data Collection Tools (13 tools)
 
-| Tool | Description | Parameters | Returns |
-|------|-------------|------------|---------|
-| **get_region_codes** | Search legal district codes by region name | region_name | Code list (preview 5 items) |
-| **get_apt_trade_data** | Collect apartment sales data | region_code, year_month | JSON file path |
-| **get_apt_rent_data** | Collect apartment rent data | region_code, year_month | JSON file path |
-| **get_officetel_trade_data** | Collect officetel sales data | region_code, year_month | JSON file path |
-| **get_officetel_rent_data** | Collect officetel rent data | region_code, year_month | JSON file path |
-| **get_single_detached_house_trade_data** | Collect single/multi-family sales data | region_code, year_month | JSON file path |
-| **get_single_detached_house_rent_data** | Collect single/multi-family rent data | region_code, year_month | JSON file path |
-| **get_row_house_trade_data** | Collect row house sales data | region_code, year_month | JSON file path |
-| **get_row_house_rent_data** | Collect row house rent data | region_code, year_month | JSON file path |
-| **get_commercial_property_trade_data** | Collect commercial property sales data | region_code, year_month | JSON file path |
-| **get_industrial_property_trade_data** | Collect industrial (factory/warehouse) sales data | region_code, year_month | JSON file path |
-| **get_land_trade_data** | Collect land sales data | region_code, year_month | JSON file path |
-| **get_transaction_cache_data** | Search/filter cached transaction data | asset_type, region_code, year_months, field_name, field_value_substring | Preview + statistics summary |
+| Tool | User-Focused Function | Input Information | What You Get |
+|------|----------------------|------------------|--------------|
+| **get_region_codes** | Find regional codes needed for real estate data queries | Region name (e.g., "Gangnam-gu", "Seocho-dong") | List of legal district codes for the area |
+| **get_apt_trade_data** | Get apartment sales transaction status for specific area | Region code, query month | Detailed transaction records: sales prices, areas, transaction dates by apartment |
+| **get_apt_rent_data** | Get apartment rental transaction status for specific area | Region code, query month | Detailed transaction records: jeonse/monthly rent, areas, contract dates by apartment |
+| **get_officetel_trade_data** | Get officetel sales transaction status for specific area | Region code, query month | Detailed transaction records: sales prices, areas, transaction dates by officetel |
+| **get_officetel_rent_data** | Get officetel rental transaction status for specific area | Region code, query month | Detailed transaction records: jeonse/monthly rent, areas, contract dates by officetel |
+| **get_single_detached_house_trade_data** | Get single/multi-family house sales transaction status for specific area | Region code, query month | Detailed transaction records: sales prices, areas, transaction dates by house |
+| **get_single_detached_house_rent_data** | Get single/multi-family house rental transaction status for specific area | Region code, query month | Detailed transaction records: jeonse/monthly rent, areas, contract dates by house |
+| **get_row_house_trade_data** | Get row house sales transaction status for specific area | Region code, query month | Detailed transaction records: sales prices, areas, transaction dates by row house |
+| **get_row_house_rent_data** | Get row house rental transaction status for specific area | Region code, query month | Detailed transaction records: jeonse/monthly rent, areas, contract dates by row house |
+| **get_commercial_property_trade_data** | Get commercial real estate sales transaction status for specific area | Region code, query month | Detailed transaction records: sales prices, areas, usage, transaction dates by commercial property |
+| **get_industrial_property_trade_data** | Get factory/warehouse sales transaction status for specific area | Region code, query month | Detailed transaction records: sales prices, areas, usage, transaction dates by industrial property |
+| **get_land_trade_data** | Get land sales transaction status for specific area | Region code, query month | Detailed transaction records: sales prices, areas, land type, transaction dates by land |
+| **get_transaction_cache_data** | Search previously collected transaction data with specific conditions | Asset type, region, period, search criteria | Transaction records matching criteria + basic statistics |
 
 ### 📊 Transaction Data Analysis Tools (11 tools)
 
-| Tool | Description | Parameters | Returns |
-|------|-------------|------------|---------|
-| **analyze_apartment_trade** | Analyze apartment sales data | file_path | Statistical summary JSON (by complex/dong/price stats) |
-| **analyze_apartment_rent** | Analyze apartment rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
-| **analyze_officetel_trade** | Analyze officetel sales data | file_path | Statistical summary JSON (by complex/dong/price stats) |
-| **analyze_officetel_rent** | Analyze officetel rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
-| **analyze_single_detached_house_trade** | Analyze single/multi-family sales data | file_path | Statistical summary JSON (by building/dong/gross floor area) |
-| **analyze_single_detached_house_rent** | Analyze single/multi-family rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
-| **analyze_row_house_trade** | Analyze row house sales data | file_path | Statistical summary JSON (by complex/dong/exclusive area) |
-| **analyze_row_house_rent** | Analyze row house rent data | file_path | Statistical summary JSON (jeonse/wolse separated) |
-| **analyze_commercial_property_trade** | Analyze commercial property sales data | file_path | Statistical summary JSON (by use type/location/building features) |
-| **analyze_industrial_property_trade** | Analyze industrial sales data | file_path | Statistical summary JSON (by use type/dong/building features) |
-| **analyze_land_trade** | Analyze land sales data | file_path | Statistical summary JSON (by land type/dong/land area) |
+| Tool | User-Focused Function | Input Information | What You Get |
+|------|----------------------|------------------|--------------|
+| **analyze_apartment_trade** | Generate apartment sales market analysis report | Transaction data file | Average/highest/lowest sales prices, complex rankings, price per pyeong analysis, representative transaction cases |
+| **analyze_apartment_rent** | Generate apartment rental market analysis report | Transaction data file | Jeonse/monthly rent market status, average deposit/rent, rental comparison by complex |
+| **analyze_officetel_trade** | Generate officetel sales market analysis report | Transaction data file | Average/highest/lowest sales prices, building rankings, price per pyeong analysis, representative transaction cases |
+| **analyze_officetel_rent** | Generate officetel rental market analysis report | Transaction data file | Jeonse/monthly rent market status, average deposit/rent, rental comparison by building |
+| **analyze_single_detached_house_trade** | Generate single/multi-family house sales market analysis report | Transaction data file | Average/highest/lowest sales prices, price analysis by gross floor area, representative transaction cases |
+| **analyze_single_detached_house_rent** | Generate single/multi-family house rental market analysis report | Transaction data file | Jeonse/monthly rent market status, average deposit/rent, rental comparison by area |
+| **analyze_row_house_trade** | Generate row house sales market analysis report | Transaction data file | Average/highest/lowest sales prices, complex rankings, price analysis by exclusive area |
+| **analyze_row_house_rent** | Generate row house rental market analysis report | Transaction data file | Jeonse/monthly rent market status, average deposit/rent, rental comparison by complex |
+| **analyze_commercial_property_trade** | Generate commercial real estate sales market analysis report | Transaction data file | Price analysis by use type/location, building feature comparison, investment perspective analysis |
+| **analyze_industrial_property_trade** | Generate factory/warehouse sales market analysis report | Transaction data file | Price analysis by use type/location, building scale comparison, investment perspective analysis |
+| **analyze_land_trade** | Generate land sales market analysis report | Transaction data file | Land price analysis by land type/location, price per pyeong comparison by area, development potential analysis |
 
 ### 🏦 ECOS/Macro Indicator Tools (6 tools)
 
-| Tool | Description | Parameters | Returns |
-|------|-------------|------------|---------|
-| **get_ecos_statistic_table_list** | Query and cache ECOS statistic table list | start, end, stat_code | Cache file path |
-| **get_ecos_statistic_word** | Query and cache ECOS statistical glossary | word, start, end | Cache file path |
-| **get_ecos_statistic_item_list** | Query and cache ECOS statistic item list | stat_code, start, end | Cache file path |
-| **get_ecos_statistic_search** | Query and cache ECOS statistical data | stat_code, cycle, start_time, end_time, item_code1~4 | Cache file path |
-| **get_ecos_key_statistic_list** | Query and cache ECOS 100 key indicators | start, end | Cache file path + pandas preview |
-| **search_realestate_indicators** | Keyword search in 100 key indicators for real estate/interest rate/macro indicators | keyword | Latest values, units, reference dates |
+| Tool | User-Focused Function | Input Information | What You Get |
+|------|----------------------|------------------|--------------|
+| **get_ecos_statistic_table_list** | Check all statistical tables provided by Bank of Korea | Query range, specific stat code (optional) | List of available economic statistics (GDP, inflation, interest rates, etc.) |
+| **get_ecos_statistic_word** | Find accurate meanings of economic statistical terms | Search term, query range | Definitions and explanations of economic terminology |
+| **get_ecos_statistic_item_list** | Check detailed items of specific statistical table | Statistical table code, query range | Detailed categories and item list of the statistics |
+| **get_ecos_statistic_search** | Get time series data of desired economic indicators | Stat code, cycle, period, detailed items | Actual economic indicator values (monthly/quarterly/annual data) |
+| **get_ecos_key_statistic_list** | Check status of Korea's core 100 economic indicators | Query range | Current values and summary information of major economic indicators |
+| **search_realestate_indicators** | Quick search for economic indicators needed for real estate investment | Keywords (e.g., "base rate", "housing prices") | Latest figures, units, and announcement dates of related indicators |
 
 > **📌 Correlation Analysis Tool**: Real estate-macro correlation/regression analysis tool is currently under development.
 

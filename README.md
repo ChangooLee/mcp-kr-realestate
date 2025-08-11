@@ -124,48 +124,48 @@ print(ecos_data.text)  # 캐시된 데이터 파일 경로
 
 ### 📋 실거래가 데이터 수집 도구 (13개)
 
-| 도구명 | 설명 | 주요 파라미터 | 반환값 |
-|--------|------|---------------|--------|
-| **get_region_codes** | 지역명으로 법정동코드 조회 | region_name | 코드 목록(미리보기 5건) |
-| **get_apt_trade_data** | 아파트 매매 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_apt_rent_data** | 아파트 전월세 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_officetel_trade_data** | 오피스텔 매매 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_officetel_rent_data** | 오피스텔 전월세 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_single_detached_house_trade_data** | 단독/다가구 매매 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_single_detached_house_rent_data** | 단독/다가구 전월세 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_row_house_trade_data** | 연립다세대 매매 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_row_house_rent_data** | 연립다세대 전월세 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_commercial_property_trade_data** | 상업업무용 매매 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_industrial_property_trade_data** | 산업용(공장/창고) 매매 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_land_trade_data** | 토지 매매 실거래가 수집 | region_code, year_month | JSON 파일 경로 |
-| **get_transaction_cache_data** | 캐시된 거래 데이터 검색/필터링 | asset_type, region_code, year_months, field_name, field_value_substring | 미리보기 + 통계 요약 |
+| 도구명 | 사용자 관점의 기능 | 입력 정보 | 얻을 수 있는 결과 |
+|--------|------------------|-----------|------------------|
+| **get_region_codes** | 지역명으로 부동산 데이터 조회에 필요한 지역코드 찾기 | 지역명 (예: "강남구", "서초동") | 해당 지역의 법정동코드 목록 |
+| **get_apt_trade_data** | 특정 지역의 아파트 매매 거래 현황 조회 | 지역코드, 조회월 | 아파트별 매매가, 면적, 거래일 등 상세 거래내역 |
+| **get_apt_rent_data** | 특정 지역의 아파트 전월세 거래 현황 조회 | 지역코드, 조회월 | 아파트별 전세금/월세, 면적, 계약일 등 상세 거래내역 |
+| **get_officetel_trade_data** | 특정 지역의 오피스텔 매매 거래 현황 조회 | 지역코드, 조회월 | 오피스텔별 매매가, 면적, 거래일 등 상세 거래내역 |
+| **get_officetel_rent_data** | 특정 지역의 오피스텔 전월세 거래 현황 조회 | 지역코드, 조회월 | 오피스텔별 전세금/월세, 면적, 계약일 등 상세 거래내역 |
+| **get_single_detached_house_trade_data** | 특정 지역의 단독/다가구 매매 거래 현황 조회 | 지역코드, 조회월 | 단독주택별 매매가, 면적, 거래일 등 상세 거래내역 |
+| **get_single_detached_house_rent_data** | 특정 지역의 단독/다가구 전월세 거래 현황 조회 | 지역코드, 조회월 | 단독주택별 전세금/월세, 면적, 계약일 등 상세 거래내역 |
+| **get_row_house_trade_data** | 특정 지역의 연립다세대 매매 거래 현황 조회 | 지역코드, 조회월 | 연립다세대별 매매가, 면적, 거래일 등 상세 거래내역 |
+| **get_row_house_rent_data** | 특정 지역의 연립다세대 전월세 거래 현황 조회 | 지역코드, 조회월 | 연립다세대별 전세금/월세, 면적, 계약일 등 상세 거래내역 |
+| **get_commercial_property_trade_data** | 특정 지역의 상업용 부동산 매매 거래 현황 조회 | 지역코드, 조회월 | 상가/오피스별 매매가, 면적, 용도, 거래일 등 상세 거래내역 |
+| **get_industrial_property_trade_data** | 특정 지역의 공장/창고 매매 거래 현황 조회 | 지역코드, 조회월 | 공장/창고별 매매가, 면적, 용도, 거래일 등 상세 거래내역 |
+| **get_land_trade_data** | 특정 지역의 토지 매매 거래 현황 조회 | 지역코드, 조회월 | 토지별 매매가, 면적, 지목, 거래일 등 상세 거래내역 |
+| **get_transaction_cache_data** | 이미 수집된 거래 데이터에서 원하는 조건으로 검색 | 자산유형, 지역, 기간, 검색조건 | 조건에 맞는 거래내역 + 간단한 통계 |
 
 ### 📊 실거래가 분석 도구 (11개)
 
-| 도구명 | 설명 | 주요 파라미터 | 반환값 |
-|--------|------|---------------|--------|
-| **analyze_apartment_trade** | 아파트 매매 데이터 분석 | file_path | 통계 요약 JSON (단지별/동별/가격 통계) |
-| **analyze_apartment_rent** | 아파트 전월세 데이터 분석 | file_path | 통계 요약 JSON (전세/월세 구분) |
-| **analyze_officetel_trade** | 오피스텔 매매 데이터 분석 | file_path | 통계 요약 JSON (단지별/동별/가격 통계) |
-| **analyze_officetel_rent** | 오피스텔 전월세 데이터 분석 | file_path | 통계 요약 JSON (전세/월세 구분) |
-| **analyze_single_detached_house_trade** | 단독/다가구 매매 데이터 분석 | file_path | 통계 요약 JSON (건물별/동별/연면적 기준) |
-| **analyze_single_detached_house_rent** | 단독/다가구 전월세 데이터 분석 | file_path | 통계 요약 JSON (전세/월세 구분) |
-| **analyze_row_house_trade** | 연립다세대 매매 데이터 분석 | file_path | 통계 요약 JSON (단지별/동별/전용면적 기준) |
-| **analyze_row_house_rent** | 연립다세대 전월세 데이터 분석 | file_path | 통계 요약 JSON (전세/월세 구분) |
-| **analyze_commercial_property_trade** | 상업업무용 매매 데이터 분석 | file_path | 통계 요약 JSON (용도별/입지별/건물 특성별) |
-| **analyze_industrial_property_trade** | 산업용(공장/창고) 매매 데이터 분석 | file_path | 통계 요약 JSON (용도별/동별/건물 특성별) |
-| **analyze_land_trade** | 토지 매매 데이터 분석 | file_path | 통계 요약 JSON (지목별/동별/토지면적 기준) |
+| 도구명 | 사용자 관점의 기능 | 입력 정보 | 얻을 수 있는 결과 |
+|--------|------------------|-----------|------------------|
+| **analyze_apartment_trade** | 아파트 매매 시장 분석 리포트 생성 | 거래 데이터 파일 | 평균/최고/최저 매매가, 단지별 순위, 평당가 분석, 대표 거래사례 |
+| **analyze_apartment_rent** | 아파트 전월세 시장 분석 리포트 생성 | 거래 데이터 파일 | 전세/월세 시장 현황, 보증금/월세 평균가, 단지별 임대료 비교 |
+| **analyze_officetel_trade** | 오피스텔 매매 시장 분석 리포트 생성 | 거래 데이터 파일 | 평균/최고/최저 매매가, 건물별 순위, 평당가 분석, 대표 거래사례 |
+| **analyze_officetel_rent** | 오피스텔 전월세 시장 분석 리포트 생성 | 거래 데이터 파일 | 전세/월세 시장 현황, 보증금/월세 평균가, 건물별 임대료 비교 |
+| **analyze_single_detached_house_trade** | 단독/다가구 매매 시장 분석 리포트 생성 | 거래 데이터 파일 | 평균/최고/최저 매매가, 연면적별 가격 분석, 대표 거래사례 |
+| **analyze_single_detached_house_rent** | 단독/다가구 전월세 시장 분석 리포트 생성 | 거래 데이터 파일 | 전세/월세 시장 현황, 보증금/월세 평균가, 면적별 임대료 비교 |
+| **analyze_row_house_trade** | 연립다세대 매매 시장 분석 리포트 생성 | 거래 데이터 파일 | 평균/최고/최저 매매가, 단지별 순위, 전용면적별 가격 분석 |
+| **analyze_row_house_rent** | 연립다세대 전월세 시장 분석 리포트 생성 | 거래 데이터 파일 | 전세/월세 시장 현황, 보증금/월세 평균가, 단지별 임대료 비교 |
+| **analyze_commercial_property_trade** | 상업용 부동산 매매 시장 분석 리포트 생성 | 거래 데이터 파일 | 용도별/위치별 매매가 분석, 건물 특성별 가격 비교, 투자 관점 분석 |
+| **analyze_industrial_property_trade** | 공장/창고 매매 시장 분석 리포트 생성 | 거래 데이터 파일 | 용도별/위치별 매매가 분석, 건물 규모별 가격 비교, 투자 관점 분석 |
+| **analyze_land_trade** | 토지 매매 시장 분석 리포트 생성 | 거래 데이터 파일 | 지목별/위치별 토지가격 분석, 면적별 평당가 비교, 개발 가능성 분석 |
 
 ### 🏦 ECOS/거시지표 도구 (6개)
 
-| 도구명 | 설명 | 주요 파라미터 | 반환값 |
-|--------|------|---------------|--------|
-| **get_ecos_statistic_table_list** | ECOS 통계표 목록 조회 및 캐싱 | start, end, stat_code | 캐시 파일 경로 |
-| **get_ecos_statistic_word** | ECOS 통계용어사전 조회 및 캐싱 | word, start, end | 캐시 파일 경로 |
-| **get_ecos_statistic_item_list** | ECOS 통계 세부항목 목록 조회 및 캐싱 | stat_code, start, end | 캐시 파일 경로 |
-| **get_ecos_statistic_search** | ECOS 통계 데이터 조회 및 캐싱 | stat_code, cycle, start_time, end_time, item_code1~4 | 캐시 파일 경로 |
-| **get_ecos_key_statistic_list** | ECOS 100대 주요지표 조회 및 캐싱 | start, end | 캐시 파일 경로 + pandas 미리보기 |
-| **search_realestate_indicators** | 100대 주요지표에서 부동산/금리/거시지표 키워드 검색 | keyword | 관련 지표의 최신값, 단위, 기준일 |
+| 도구명 | 사용자 관점의 기능 | 입력 정보 | 얻을 수 있는 결과 |
+|--------|------------------|-----------|------------------|
+| **get_ecos_statistic_table_list** | 한국은행에서 제공하는 모든 통계표 목록 확인 | 조회 범위, 특정 통계코드(선택) | 사용 가능한 경제통계 목록 (GDP, 물가, 금리 등) |
+| **get_ecos_statistic_word** | 경제통계 용어의 정확한 의미 찾기 | 검색 용어, 조회 범위 | 경제 전문용어 정의 및 설명 |
+| **get_ecos_statistic_item_list** | 특정 통계표의 세부 항목들 확인 | 통계표 코드, 조회 범위 | 해당 통계의 세부 분류 및 항목 목록 |
+| **get_ecos_statistic_search** | 원하는 경제지표의 시계열 데이터 조회 | 통계코드, 주기, 기간, 세부항목 | 실제 경제지표 수치 (월별/분기별/연별 데이터) |
+| **get_ecos_key_statistic_list** | 한국 경제의 핵심 100대 지표 현황 확인 | 조회 범위 | 주요 경제지표 현재값 및 요약 정보 |
+| **search_realestate_indicators** | 부동산 투자에 필요한 경제지표 빠른 검색 | 키워드 (예: "기준금리", "주택가격") | 관련 지표의 최신 수치, 단위, 발표일 |
 
 > **📌 상관분석 도구**: 부동산-거시지표 상관/회귀분석 도구는 현재 개발 중입니다.
 
