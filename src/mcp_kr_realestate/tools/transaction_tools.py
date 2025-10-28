@@ -16,7 +16,8 @@ from pathlib import Path
 import pandas as pd
 import xml.etree.ElementTree as ET
 import requests
-from typing import Any, Callable, Optional, List
+from typing import Any, Callable, Optional, List, Annotated
+from pydantic import Field
 import os
 
 from ..server import mcp, ctx, RealEstateContext
@@ -122,7 +123,9 @@ def _load_region_codes_json(json_path: Optional[str] = None) -> list:
     description="""입력한 지역명(region_name)으로 법정동 코드 목록을 반환합니다.\n- `region_name`: 구/동/시 등 지역 이름의 일부를 입력합니다.\n검색 결과가 많을 경우 미리보기(10건)만 반환하며, 전체 목록이 필요하면 별도 파일로 저장됩니다.""",
     tags={"부동산", "실거래가", "지역코드"}
 )
-def get_region_codes(region_name: str) -> TextContent:
+def get_region_codes(
+    region_name: Annotated[str, Field(description="구/동/시 등 지역 이름의 일부")]
+) -> TextContent:
     """
     입력한 지역명(region_name)으로 법정동 코드 목록을 반환합니다. (10건 초과시 미리보기/요약)
     """
@@ -155,7 +158,11 @@ def get_region_codes(region_name: str) -> TextContent:
 """,
     tags={"부동산", "실거래가", "상업업무용", "매매"}
 )
-def get_commercial_property_trade_data(region_code: str, year_month: str, ctx: Optional[Any] = None) -> TextContent:
+def get_commercial_property_trade_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     # NRGTradeAPI는 context를 통해 호출해야 함
     def call(context: RealEstateContext):
         return context.nrg_trade.get_trade_data(lawd_cd=region_code, deal_ymd=year_month)
@@ -177,7 +184,10 @@ def get_commercial_property_trade_data(region_code: str, year_month: str, ctx: O
 """,
     tags={"부동산", "실거래가", "단독다가구", "매매"}
 )
-def get_single_detached_house_trade_data(region_code: str, year_month: str) -> TextContent:
+def get_single_detached_house_trade_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_sh_trade, "SINGLE_DETACHED_HOUSE_TRADE", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -189,7 +199,10 @@ def get_single_detached_house_trade_data(region_code: str, year_month: str) -> T
 """,
     tags={"부동산", "실거래가", "단독다가구", "전월세"}
 )
-def get_single_detached_house_rent_data(region_code: str, year_month: str) -> TextContent:
+def get_single_detached_house_rent_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_sh_rent, "SINGLE_DETACHED_HOUSE_RENT", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -201,7 +214,10 @@ def get_single_detached_house_rent_data(region_code: str, year_month: str) -> Te
 """,
     tags={"부동산", "실거래가", "연립다세대", "매매"}
 )
-def get_row_house_trade_data(region_code: str, year_month: str) -> TextContent:
+def get_row_house_trade_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_rh_trade, "ROW_HOUSE_TRADE", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -213,7 +229,10 @@ def get_row_house_trade_data(region_code: str, year_month: str) -> TextContent:
 """,
     tags={"부동산", "실거래가", "연립다세대", "전월세"}
 )
-def get_row_house_rent_data(region_code: str, year_month: str) -> TextContent:
+def get_row_house_rent_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_rh_rent, "ROW_HOUSE_RENT", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -225,7 +244,10 @@ def get_row_house_rent_data(region_code: str, year_month: str) -> TextContent:
 """,
     tags={"부동산", "실거래가", "산업용", "공장", "창고", "매매"}
 )
-def get_industrial_property_trade_data(region_code: str, year_month: str) -> TextContent:
+def get_industrial_property_trade_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_indu_trade, "INDU_TRADE", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -238,7 +260,10 @@ def get_industrial_property_trade_data(region_code: str, year_month: str) -> Tex
 """,
     tags={"부동산", "실거래가", "아파트", "매매"}
 )
-def get_apt_trade_data(region_code: str, year_month: str) -> TextContent:
+def get_apt_trade_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_apt_trade, "APT_TRADE", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -251,7 +276,10 @@ def get_apt_trade_data(region_code: str, year_month: str) -> TextContent:
 """,
     tags={"부동산", "실거래가", "아파트", "전월세", "전세", "월세"}
 )
-def get_apt_rent_data(region_code: str, year_month: str) -> TextContent:
+def get_apt_rent_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_apt_rent, "APT_RENT", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -264,7 +292,10 @@ def get_apt_rent_data(region_code: str, year_month: str) -> TextContent:
 """,
     tags={"부동산", "실거래가", "오피스텔", "매매"}
 )
-def get_officetel_trade_data(region_code: str, year_month: str) -> TextContent:
+def get_officetel_trade_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_officetel_trade, "OFFICETEL_TRADE", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -277,7 +308,10 @@ def get_officetel_trade_data(region_code: str, year_month: str) -> TextContent:
 """,
     tags={"부동산", "실거래가", "오피스텔", "전월세"}
 )
-def get_officetel_rent_data(region_code: str, year_month: str) -> TextContent:
+def get_officetel_rent_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_officetel_rent, "OFFICETEL_RENT", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -290,7 +324,10 @@ def get_officetel_rent_data(region_code: str, year_month: str) -> TextContent:
 """,
     tags={"부동산", "실거래가", "토지", "매매"}
 )
-def get_land_trade_data(region_code: str, year_month: str) -> TextContent:
+def get_land_trade_data(
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_month: Annotated[str, Field(description="YYYYMM 형식의 년월")]
+) -> TextContent:
     result = _fetch_and_save_as_json(api_get_land_trade, "LAND_TRADE", region_code, year_month)
     return TextContent(type="text", text=result)
 
@@ -307,7 +344,13 @@ def get_land_trade_data(region_code: str, year_month: str) -> TextContent:
     """,
     tags={"부동산", "실거래가", "캐시", "검색", "요약", "매매", "전월세", "임대", "임차"}
 )
-def get_transaction_cache_data(asset_type: str, region_code: str, year_months: List[str], field_name: Optional[str] = None, field_value_substring: Optional[str] = None) -> TextContent:
+def get_transaction_cache_data(
+    asset_type: Annotated[str, Field(description="부동산 타입 (예: 'APT_TRADE', 'APT_RENT', 'OFFICETEL_TRADE' 등)")],
+    region_code: Annotated[str, Field(description="5자리 법정동 코드")],
+    year_months: Annotated[List[str], Field(description="YYYYMM 형식의 년월 리스트 (여러 개 가능)")],
+    field_name: Annotated[Optional[str], Field(description="필터링할 필드명 (예: 'aptNm', 'officetelNm')")] = None,
+    field_value_substring: Annotated[Optional[str], Field(description="필드에서 검색할 부분 문자열")] = None
+) -> TextContent:
     """
     Load cached transaction data for any asset type, region, and months, with optional filtering by any field (e.g., apartment name, officetel name, etc.).
     """

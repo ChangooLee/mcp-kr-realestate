@@ -82,19 +82,19 @@ def main():
     logger.info("✅ Initializing RealEstate FastMCP server...")
     transport = mcp_config.transport
     port = mcp_config.port
-    if transport == "sse":
-        asyncio.run(run_server(transport="sse", port=port))
+    if transport == "streamable-http":
+        asyncio.run(run_server(transport="streamable-http", port=port))
     else:
         mcp.run()
 
 async def run_server(
-    transport: Literal["stdio", "sse"] = "stdio",
+    transport: Literal["stdio", "sse", "streamable-http"] = "stdio",
     port: int = 8001,
 ) -> None:
     if transport == "stdio":
         await mcp.run_stdio_async()
-    elif transport == "sse":
-        logger.info(f"Starting server with SSE transport on http://0.0.0.0:{port}")
+    elif transport in ["sse", "streamable-http"]:
+        logger.info(f"Starting server with {transport} transport on http://0.0.0.0:{port}")
         await mcp.run_sse_async(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":

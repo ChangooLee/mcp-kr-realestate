@@ -8,7 +8,8 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import json
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Annotated
+from pydantic import Field
 from datetime import datetime
 import os
 import re
@@ -305,7 +306,10 @@ Returns:
 """,
     tags={"통계", "분석", "리포트", "상업업무용", "실거래가"}
 )
-def analyze_commercial_property_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_commercial_property_trade(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     """
     상업업무용 부동산 거래 데이터 XML 파일을 분석하여 통계 요약을 생성합니다.
     """
@@ -451,7 +455,10 @@ Returns:
 """,
     tags={"아파트", "통계", "분석", "리포트", "매매", "실거래가"}
 )
-def analyze_apartment_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_apartment_trade(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     """
     아파트 매매 거래 데이터 XML 파일을 분석하여 통계 요약을 생성합니다.
     """
@@ -563,7 +570,10 @@ def analyze_apartment_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""아파트 전월세 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_apt_rent_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동하며, '전세'와 '월세'를 자동으로 구분하여 각각에 대한 상세 통계를 제공합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\n- **거래 유형 분포**: 전체 거래 중 전세와 월세의 비중을 보여줍니다.\n- **전세 분석**: 보증금에 대한 평균/중위/최고/최저 가격 및 주요 거래 사례를 제공합니다. 단지별 통계도 포함됩니다.\n- **월세 분석**: 보증금 및 월세 각각에 대한 평균/중위 가격 통계를 제공합니다. 단지별 통계도 포함됩니다.\n\nArguments:\n- file_path (str, required): `get_apt_rent_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 전세와 월세로 구분된 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"아파트", "통계", "분석", "리포트", "전세", "월세", "전월세", "실거래가"}
 )
-def analyze_apartment_rent(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_apartment_rent(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -683,7 +693,10 @@ def analyze_officetel_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""오피스텔 매매 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_officetel_trade_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동합니다.\n종합 통계, 가격 수준, 평당가, 단지별, 동별 등 다각적인 분석 결과를 반환합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\nArguments:\n- file_path (str, required): `get_officetel_trade_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"오피스텔", "통계", "분석", "리포트", "매매", "실거래가"}
 )
-def analyze_officetel_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_officetel_trade(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -771,7 +784,10 @@ def analyze_officetel_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""오피스텔 전월세 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_officetel_rent_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동하며, '전세'와 '월세'를 자동으로 구분하여 각각에 대한 상세 통계를 제공합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\n- **거래 유형 분포**: 전체 거래 중 전세와 월세의 비중을 보여줍니다.\n- **전세 분석**: 보증금에 대한 평균/중위/최고/최저 가격 및 주요 거래 사례를 제공합니다. 건물명별 통계도 포함됩니다.\n- **월세 분석**: 보증금 및 월세 각각에 대한 평균/중위 가격 통계를 제공합니다. 건물명별 통계도 포함됩니다.\n\nArguments:\n- file_path (str, required): `get_officetel_rent_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 전세와 월세로 구분된 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"오피스텔", "통계", "분석", "리포트", "전세", "월세", "전월세", "실거래가"}
 )
-def analyze_officetel_rent(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_officetel_rent(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -880,7 +896,10 @@ def analyze_single_detached_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""단독/다가구 매매 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_single_detached_house_trade_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동합니다.\n종합 통계, 가격 수준, 평당가, 건물명별, 동별 등 다각적인 분석 결과를 반환합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\nArguments:\n- file_path (str, required): `get_single_detached_house_trade_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"단독다가구", "통계", "분석", "리포트", "매매", "실거래가"}
 )
-def analyze_single_detached_house_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_single_detached_house_trade(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -968,7 +987,10 @@ def analyze_single_detached_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""단독/다가구 전월세 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_sh_rent_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동하며, '전세'와 '월세'를 자동으로 구분하여 각각에 대한 상세 통계를 제공합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\n- **거래 유형 분포**: 전체 거래 중 전세와 월세의 비중을 보여줍니다.\n- **전세 분석**: 보증금에 대한 평균/중위/최고/최저 가격 및 주요 거래 사례를 제공합니다. 건물명별 통계도 포함됩니다.\n- **월세 분석**: 보증금 및 월세 각각에 대한 평균/중위 가격 통계를 제공합니다. 건물명별 통계도 포함됩니다.\n\nArguments:\n- file_path (str, required): `get_sh_rent_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 전세와 월세로 구분된 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"단독다가구", "통계", "분석", "리포트", "전세", "월세", "전월세", "실거래가"}
 )
-def analyze_single_detached_house_rent(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_single_detached_house_rent(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -1076,7 +1098,10 @@ def analyze_row_house_trade_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""연립다세대 매매 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_row_house_trade_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동합니다.\n종합 통계, 가격 수준, 평당가, 단지별, 동별 등 다각적인 분석 결과를 반환합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\nArguments:\n- file_path (str, required): `get_row_house_trade_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"연립다세대", "통계", "분석", "리포트", "매매", "실거래가"}
 )
-def analyze_row_house_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_row_house_trade(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -1164,7 +1189,10 @@ def analyze_row_house_rent_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""연립다세대 전월세 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_row_house_rent_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동하며, '전세'와 '월세'를 자동으로 구분하여 각각에 대한 상세 통계를 제공합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\n- **거래 유형 분포**: 전체 거래 중 전세와 월세의 비중을 보여줍니다.\n- **전세 분석**: 보증금에 대한 평균/중위/최고/최저 가격 및 주요 거래 사례를 제공합니다. 건물명별 통계도 포함됩니다.\n- **월세 분석**: 보증금 및 월세 각각에 대한 평균/중위 가격 통계를 제공합니다. 건물명별 통계도 포함됩니다.\n\nArguments:\n- file_path (str, required): `get_row_house_rent_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 전세와 월세로 구분된 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"연립다세대", "통계", "분석", "리포트", "전세", "월세", "전월세", "실거래가"}
 )
-def analyze_row_house_rent(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_row_house_rent(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -1328,7 +1356,10 @@ def analyze_industrial_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""공장/창고 등 산업용 부동산 매매 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_indu_trade_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동합니다.\n종합 통계, 가격 수준, 평당가, 용도별, 동별, 건물 특성별 등 다각적인 분석 결과를 반환합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\nArguments:\n- file_path (str, required): `get_indu_trade_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"공장", "창고", "산업용", "통계", "분석", "리포트", "매매", "실거래가"}
 )
-def analyze_industrial_property_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_industrial_property_trade(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -1449,7 +1480,10 @@ def analyze_land_property_data(df: pd.DataFrame) -> Dict[str, Any]:
     description="""토지 매매 실거래 데이터 파일을 분석하여 월간 리포트 형식의 핵심 통계 요약을 제공합니다.\n이 도구는 `get_land_trade_data`를 통해 얻은 데이터 파일의 경로를 입력받아 작동합니다.\n종합 통계, 가격 수준, 평당가, 지목별, 동별 등 다각적인 분석 결과를 반환합니다.\n분석 결과를 바탕으로, 주요 통계 지표들을 사용자가 이해하기 쉽도록 차트나 그래프로 시각화하여 리포트를 작성해 주세요.\n\nArguments:\n- file_path (str, required): `get_land_trade_data` 도구로 생성된 `raw.data.json` 데이터 파일의 경로.\n\nReturns:\n- 통계 분석 결과가 담긴 상세한 JSON 문자열.""",
     tags={"토지", "통계", "분석", "리포트", "매매", "실거래가"}
 )
-def analyze_land_trade(file_path: str, ctx: Optional[Any] = None) -> TextContent:
+def analyze_land_trade(
+    file_path: Annotated[str, Field(description="분석할 raw.data.json 파일 경로")],
+    ctx: Optional[Any] = None
+) -> TextContent:
     def call(context):
         try:
             p = Path(file_path)
@@ -1488,7 +1522,9 @@ get_ecos_statistic_table_list({"start": 1, "end": 100, "stat_code": null})
 """,
     tags={"ECOS", "통계", "목록", "한국은행"}
 )
-def get_ecos_statistic_table_list(params: dict) -> TextContent:
+def get_ecos_statistic_table_list(
+    params: Annotated[dict, Field(description="조회 파라미터 (start, end, stat_code)")]
+) -> TextContent:
     path = get_statistic_table_list(params)
     return TextContent(type="text", text=str(path))
 
@@ -1506,7 +1542,9 @@ get_ecos_statistic_word({"word": null, "start": 1, "end": 100})
 """,
     tags={"ECOS", "통계", "용어", "사전", "한국은행"}
 )
-def get_ecos_statistic_word(params: dict) -> TextContent:
+def get_ecos_statistic_word(
+    params: Annotated[dict, Field(description="조회 파라미터 (word, start, end)")]
+) -> TextContent:
     path = get_statistic_word(params)
     return TextContent(type="text", text=str(path))
 
@@ -1524,7 +1562,9 @@ get_ecos_statistic_item_list({"stat_code": "601Y002", "start": 1, "end": 100})
 """,
     tags={"ECOS", "통계", "항목", "세부항목", "한국은행"}
 )
-def get_ecos_statistic_item_list(params: dict) -> TextContent:
+def get_ecos_statistic_item_list(
+    params: Annotated[dict, Field(description="조회 파라미터 (stat_code, start, end)")]
+) -> TextContent:
     path = get_statistic_item_list(params)
     return TextContent(type="text", text=str(path))
 
@@ -1545,7 +1585,9 @@ get_ecos_statistic_search({"stat_code": "200Y101", "cycle": "A", "start_time": "
 """,
     tags={"ECOS", "통계", "조회", "데이터", "한국은행"}
 )
-def get_ecos_statistic_search(params: dict) -> TextContent:
+def get_ecos_statistic_search(
+    params: Annotated[dict, Field(description="조회 파라미터 (stat_code, cycle, start_time, end_time, item_codes)")]
+) -> TextContent:
     from pathlib import Path
     import json
     path = get_statistic_search(params)
@@ -1567,7 +1609,9 @@ get_ecos_key_statistic_list({"start": 1, "end": 100})
 """,
     tags={"ECOS", "통계", "100대지표", "주요지표", "한국은행"}
 )
-def get_ecos_key_statistic_list(params: dict) -> TextContent:
+def get_ecos_key_statistic_list(
+    params: Annotated[dict, Field(description="조회 파라미터 (start, end)")]
+) -> TextContent:
     path = get_key_statistic_list(params)
     if path is None:
         return TextContent(type="text", text=json.dumps({"error": "Cache path is None. Check your parameters."}, ensure_ascii=False, indent=2))
@@ -1686,7 +1730,9 @@ def ensure_latest_keystatlist_cache():
 """,
     tags={"ECOS", "100대지표", "부동산", "통계", "자동수집", "추천지표"}
 )
-def search_realestate_indicators(params: dict) -> TextContent:
+def search_realestate_indicators(
+    params: Annotated[dict, Field(description="검색 파라미터 (keyword)")]
+) -> TextContent:
     """
     Always respond based on the 100 KeyStatisticList indicators, returning only filtered/summarized results from that list.
     """
