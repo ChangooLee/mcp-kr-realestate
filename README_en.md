@@ -8,64 +8,175 @@
 > 
 > Licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). Commercial use is strictly prohibited.
 
+![License](https://img.shields.io/github/license/ChangooLee/mcp-kr-realestate)
+![GitHub Stars](https://img.shields.io/github/stars/ChangooLee/mcp-kr-realestate)
+![GitHub Issues](https://img.shields.io/github/issues/ChangooLee/mcp-kr-realestate)
+![GitHub Last Commit](https://img.shields.io/github/last-commit/ChangooLee/mcp-kr-realestate)
+
+Model Context Protocol (MCP) server for advanced real estate investment analytics in Korea. This integration enables secure, contextual AI interactions with Korean real estate data while maintaining data privacy and security.
+
+## Example Usage
+
+Ask your AI assistant to:
+
+- **📊 Transaction Data** - "Get apartment sales transaction data for Gangnam-gu in May 2025"
+- **📈 Market Analysis** - "Analyze the officetel rental market in Seocho-dong"
+- **🏦 Economic Indicators** - "Search for base interest rate and housing price index"
+- **🔍 Data Search** - "Search cached apartment transaction data by complex name"
+
+### Compatibility
+
+| Feature | Support Status | Description |
+|---------|---------------|-------------|
+| **Apartment Transactions** | ✅ Fully supported | Sales and rental transaction data for apartments |
+| **Officetel Transactions** | ✅ Fully supported | Sales and rental transaction data for officetels |
+| **Single/Multi-family Homes** | ✅ Fully supported | Sales and rental transaction data for single/multi-family homes |
+| **Row Houses** | ✅ Fully supported | Sales and rental transaction data for row houses |
+| **Commercial Properties** | ✅ Fully supported | Sales transaction data for commercial properties |
+| **Industrial Properties** | ✅ Fully supported | Sales transaction data for factories/warehouses |
+| **Land Transactions** | ✅ Fully supported | Sales transaction data for land |
+| **ECOS Economic Indicators** | ✅ Fully supported | Bank of Korea ECOS API integration for macroeconomic indicators |
+| **Statistical Analysis** | ✅ Fully supported | Comprehensive statistical analysis and reporting |
+
 ---
 
-## Overview
+## Quick Start Guide
 
-MCP Real Estate is a Model Context Protocol (MCP) server for advanced real estate investment analytics in Korea. It integrates multiple public APIs (Ministry of Land, Bank of Korea ECOS, etc.) to provide comprehensive data collection, statistical analysis, and automated reporting for real estate assets.
+### 1. Authentication Setup
 
----
+First, obtain your API keys:
 
-## Key Features
+1. **Public Data Portal API Key**: Get from [data.go.kr](https://data.go.kr) (URL encoding required)
+2. **ECOS API Key**: Get from [Bank of Korea ECOS](https://ecos.bok.or.kr/api/)
 
-- **🏢 Comprehensive Multi-Asset Coverage**: Complete support for 7 asset classes - apartments, officetels, single/multi-family homes, row houses, commercial properties, industrial facilities (factories/warehouses), and land with both sales and rental transaction data
-- **📊 Real-time Data Integration**: Seamless integration with Korea Ministry of Land's Public Data Portal and Bank of Korea ECOS APIs for live market data
-- **🌍 Nationwide Geographic Coverage**: Legal dong-level regional analysis with support for Bank of Korea's top 100 macroeconomic indicators
-- **🤖 AI-Native Architecture**: Built on Model Context Protocol (MCP) for direct integration with Claude, GPT, and other AI models
-- **📈 Advanced Statistical Analytics**: Asset-specific price statistics, price-per-pyeong analysis, segmented analysis by building characteristics and location
-- **🛡️ Smart Caching System**: Automated data caching, duplicate request prevention, and cache fallback during API outages
+### 2. Installation
 
----
-
-## 🚀 Quick Start
-
-### 1. Install Python 3.10+
-
-#### macOS
-```sh
-brew install python@3.10
-```
-#### Windows
-- Download from [python.org](https://www.python.org/downloads/windows/), check "Add Python to PATH"
-#### Linux (Ubuntu)
-```sh
-sudo apt update
-sudo apt install python3.10 python3.10-venv python3.10-distutils
-```
-
-### 2. Project Setup
-
-```sh
+```bash
+# Clone repository
 git clone https://github.com/ChangooLee/mcp-kr-realestate.git
 cd mcp-kr-realestate
+
+# [IMPORTANT] Ensure you are using Python 3.10 or higher. See: 'Checking and Installing Python 3.10+' below.
+
+# Create virtual environment
 python3.10 -m venv .venv
 source .venv/bin/activate  # (Windows: .venv\Scripts\activate)
-pip install --upgrade pip
+
+# Install package
+python3 -m pip install --upgrade pip
 pip install -e .
 ```
 
-### 3. Environment Variables
+---
 
-Example `.env` file:
-```env
-PUBLIC_DATA_API_KEY_ENCODED=your_public_data_api_key_url_encoded
-ECOS_API_KEY=your_ecos_api_key
-HOST=0.0.0.0
-PORT=8001
-TRANSPORT=stdio
-LOG_LEVEL=INFO
-MCP_SERVER_NAME=kr-realestate-mcp
+## Checking and Installing Python 3.10+
+
+# Check Python version (must be 3.10 or higher)
+python3 --version
+
+# If your Python version is lower than 3.10, follow the instructions below to install Python 3.10 or higher:
+
+### macOS
+- Download the latest Python installer from the official website: https://www.python.org/downloads/macos/
+- Or, if you use Homebrew:
+  ```sh
+  brew install python@3.10
+  ```
+  After installation, you may need to use `python3.10` instead of `python3`.
+
+### Windows
+- Download and run the latest Python installer from: https://www.python.org/downloads/windows/
+- During installation, make sure to check "Add Python to PATH".
+- After installation, restart your terminal and use `python` or `python3`.
+
+### Linux (Ubuntu/Debian)
+- Update package list and install Python 3.10:
+  ```sh
+  sudo apt update
+  sudo apt install python3.10 python3.10-venv python3.10-distutils
+  ```
+- You may need to use `python3.10` instead of `python3`.
+
+### Linux (Fedora/CentOS/RHEL)
+- Install Python 3.10:
+  ```sh
+  sudo dnf install python3.10
+  ```
+
+---
+
+## IDE Integration
+
+MCP Real Estate Investment Analytics Server is designed to be used with AI assistants through IDE integration.
+
+### Claude Desktop Configuration
+
+1. Click hamburger menu (☰) > Settings > Developer > "Edit Config" button
+2. Add the following configuration:
+
+```json
+{
+  "mcpServers": {
+    "mcp-kr-realestate": {
+      "command": "YOUR_LOCATION/.venv/bin/mcp-kr-realestate",
+      "env": {
+        "PUBLIC_DATA_API_KEY": "your-api-key-here",
+        "PUBLIC_DATA_API_KEY_ENCODED": "your-url-encoded-api-key-here",
+        "ECOS_API_KEY": "your-ecos-api-key-here",
+        "HOST": "0.0.0.0",
+        "PORT": "8001",
+        "TRANSPORT": "stdio",
+        "LOG_LEVEL": "INFO",
+        "MCP_SERVER_NAME": "mcp-kr-realestate"
+      }
+    }
+  }
+}
 ```
+
+### Streamable HTTP Configuration (Optional)
+
+You can also run with streamable-http using HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "mcp-kr-realestate": {
+      "command": "YOUR_LOCATION/.venv/bin/mcp-kr-realestate",
+      "env": {
+        "PUBLIC_DATA_API_KEY": "your-api-key-here",
+        "PUBLIC_DATA_API_KEY_ENCODED": "your-url-encoded-api-key-here",
+        "ECOS_API_KEY": "your-ecos-api-key-here",
+        "HOST": "0.0.0.0",
+        "PORT": "9001",
+        "TRANSPORT": "streamable-http",
+        "LOG_LEVEL": "INFO",
+        "MCP_SERVER_NAME": "mcp-kr-realestate"
+      }
+    }
+  }
+}
+```
+
+> [!NOTE]
+> - When `TRANSPORT="streamable-http"` is set, the server runs with streamable-http
+> - Endpoint: `http://HOST:PORT/mcp`
+
+> [!NOTE]
+> - `YOUR_LOCATION`: Replace with the actual path where your virtual environment is installed
+> - `your-api-key-here`: Replace with your Public Data Portal API key (both decoded and URL-encoded versions)
+> - `your-ecos-api-key-here`: Replace with your ECOS API key
+
+### Environment Variables
+
+- `PUBLIC_DATA_API_KEY`: Your Public Data Portal API key (decoded)
+- `PUBLIC_DATA_API_KEY_ENCODED`: Your Public Data Portal API key (URL-encoded)
+- `ECOS_API_KEY`: Your Bank of Korea ECOS API key
+- `HOST`: Server host (default: 0.0.0.0)
+- `PORT`: Server port (default: 8001)
+- `TRANSPORT`: Transport method (stdio recommended, set to streamable-http for HTTP transport support)
+- `LOG_LEVEL`: Logging level (INFO, DEBUG, etc.)
+- `MCP_SERVER_NAME`: Server name
 
 ---
 
@@ -170,29 +281,60 @@ print(ecos_data.text)  # Cached data file path
 
 ---
 
-## 🖥️ MCP Client Integration Guide
+## Troubleshooting & Debugging
 
-### Claude Desktop Integration
-```json
-{
-  "mcpServers": {
-    "kr-realestate": {
-      "command": "/your/path/.venv/bin/mcp-kr-realestate",
-      "env": {
-        "PUBLIC_DATA_API_KEY_ENCODED": "your_api_key_here",
-        "ECOS_API_KEY": "your_ecos_key_here"
-      }
-    }
-  }
-}
+### Common Issues
+
+- **Authentication Failures**:
+  - Check if your API key is valid and active
+  - Verify your API key has the necessary permissions
+  - For Public Data Portal API key, ensure both decoded and URL-encoded versions are set
+  - Check if you've exceeded the API rate limit
+
+- **Data Access Issues**:
+  - Some data may require additional permissions
+  - Certain data might have delayed access (up to 24 hours)
+  - Check if the region code is correct (use get_region_codes to verify)
+
+- **Connection Problems**:
+  - Verify your internet connection
+  - Check if the Public API service is available
+  - Ensure your firewall isn't blocking the connection
+
+### Debugging Tools
+
+```bash
+# Enable verbose logging
+export LOG_LEVEL=DEBUG
+
+# Test server directly
+python -m mcp_kr_realestate.server
+
+# Test in virtual environment
+source .venv/bin/activate
+mcp-kr-realestate
 ```
 
-### Supported Platforms
+---
+
+## Security
+
+- Never share your API key
+- Keep `.env` files secure and private
+- Use appropriate rate limiting
+- Monitor your API usage
+- Store sensitive data in environment variables
+
+---
+
+## Supported Platforms
+
 - **macOS**: Both Intel and Apple Silicon supported
 - **Windows**: Windows 10/11 supported
 - **Linux**: Ubuntu 20.04+ supported
 
 ### Required Dependencies
+
 - Python 3.10+
 - requests, pandas, python-dotenv
 - fastmcp 2.2.3, mcp 1.6.0
@@ -202,26 +344,37 @@ print(ecos_data.text)  # Cached data file path
 ## ⚠️ Important Notes
 
 ### API Key Setup
+
 1. **Public Data Portal API Key**: Obtain from [data.go.kr](https://data.go.kr) (URL encoding required)
-2. **ECOS API Key**: Obtain from [Bank of Korea ECOS](https://ecos.bok.or.kr)
+   - Both decoded and URL-encoded versions must be set
+2. **ECOS API Key**: Obtain from [Bank of Korea ECOS](https://ecos.bok.or.kr/api/)
 
 ### Data Management
+
 - All data is automatically cached in `src/mcp_kr_realestate/utils/cache/`
 - Cache files are auto-refreshed every 24 hours
 - Manual cache deletion/refresh is supported
 
 ### Known Limitations
+
 - **Regional Data**: Empty results returned for regions/periods with no transactions
 - **API Response Time**: Large data queries may take 1-3 seconds
 - **Features in Development**: Real estate-macro correlation analysis, portfolio optimization, AI report generation
 
 ---
 
-## 📝 Contributing / Contact / License
+## Contributing
 
-- See CONTRIBUTING.md or open an issue for questions
+We welcome contributions! If you'd like to contribute:
 
-### License
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+---
+
+## License
 
 This project is licensed under the [CC BY-NC 4.0 (Non-Commercial Use Only)](https://creativecommons.org/licenses/by-nc/4.0/) license.
 
@@ -235,4 +388,12 @@ This project is licensed under the [CC BY-NC 4.0 (Non-Commercial Use Only)](http
 
 ---
 
-> 한국어 안내는 [README.md](README.md)에서 확인하세요. 
+**Project Maintainer**: Changoo Lee  
+**Contact**: lchangoo@gmail.com  
+**GitHub**: https://github.com/ChangooLee/mcp-kr-realestate  
+**Blog**: https://changoo.tech  
+**LinkedIn**: https://linkedin.com/in/changoo-lee  
+
+**Note**: This project is an analytical tool using public APIs. The final responsibility for investment decisions lies with the user. Please consult with professionals when making actual investments.
+
+**⚠️ 2025 Major Changes**: Some API service structure changes may require code modifications. See [Change Log](https://github.com/ChangooLee/mcp-kr-realestate/blob/main/CHANGELOG.md) for details.

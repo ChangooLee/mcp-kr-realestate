@@ -1,4 +1,4 @@
-[한국어] | [English](README_en.md)
+한국어 | [English](README_en.md)
 
 # MCP 부동산 투자 분석 서버
 
@@ -30,49 +30,154 @@
 
 ---
 
-## 🔰 빠른 시작 (Quick Start)
+## 🔰 빠른 시작 가이드
 
-### 1. Python 3.10+ 설치
+### 1. 인증 설정
 
-#### macOS
-```sh
-brew install python@3.10
-```
-#### Windows
-- [python.org](https://www.python.org/downloads/windows/)에서 설치, "Add Python to PATH" 체크
-#### Linux (Ubuntu)
-```sh
-sudo apt update
-sudo apt install python3.10 python3.10-venv python3.10-distutils
-```
+먼저 필요한 API 키를 발급받으세요:
 
-### 2. 프로젝트 설치
+1. **공공데이터포털 API 키**: [data.go.kr](https://data.go.kr)에서 발급 (URL 인코딩 필요)
+2. **ECOS API 키**: [한국은행 ECOS](https://ecos.bok.or.kr/api/)에서 발급
 
-```sh
+### 2. 설치
+
+```bash
+# 저장소 복제
 git clone https://github.com/ChangooLee/mcp-kr-realestate.git
 cd mcp-kr-realestate
+
+# [중요] Python 3.10 이상 사용 필수. 아래 'Python 3.10+ 설치 안내' 참고
+
+# 가상 환경 생성
 python3.10 -m venv .venv
 source .venv/bin/activate  # (Windows: .venv\Scripts\activate)
-pip install --upgrade pip
+
+# 패키지 설치
+python3 -m pip install --upgrade pip
 pip install -e .
-```
-
-### 3. 환경 변수 설정
-
-`.env` 파일 예시:
-```env
-PUBLIC_DATA_API_KEY_ENCODED=발급받은_공공데이터_API키(URL인코딩된_형태)
-ECOS_API_KEY=발급받은_ECOS_API키
-HOST=0.0.0.0
-PORT=8001
-TRANSPORT=stdio
-LOG_LEVEL=INFO
-MCP_SERVER_NAME=kr-realestate-mcp
 ```
 
 ---
 
-## 🛠️ 실제 사용 예시
+## Python 3.10+ 설치 안내
+
+# Python 버전 확인 (3.10 이상 필요)
+python3 --version
+
+# 만약 Python 버전이 3.10 미만이라면, 아래 안내에 따라 Python 3.10 이상을 설치하세요:
+
+### macOS
+- 공식 웹사이트에서 최신 Python 설치 파일을 다운로드: https://www.python.org/downloads/macos/
+- 또는 Homebrew를 사용하는 경우:
+  ```sh
+  brew install python@3.10
+  ```
+  설치 후 `python3.10` 명령어를 사용해야 할 수 있습니다.
+
+### Windows
+- 공식 웹사이트에서 최신 Python 설치 파일을 다운로드 및 실행: https://www.python.org/downloads/windows/
+- 설치 시 "Add Python to PATH" 옵션을 반드시 체크하세요.
+- 설치 후 터미널을 재시작하고 `python` 또는 `python3` 명령어를 사용하세요.
+
+### Linux (Ubuntu/Debian)
+- 패키지 목록을 업데이트하고 Python 3.10 설치:
+  ```sh
+  sudo apt update
+  sudo apt install python3.10 python3.10-venv python3.10-distutils
+  ```
+- `python3.10` 명령어를 사용해야 할 수 있습니다.
+
+### Linux (Fedora/CentOS/RHEL)
+- Python 3.10 설치:
+  ```sh
+  sudo dnf install python3.10
+  ```
+
+---
+
+## IDE 통합
+
+MCP 부동산 투자 분석 서버는 IDE 통합을 통해 AI 어시스턴트와 함께 사용하도록 설계되었습니다.
+
+### Claude Desktop 설정 방법
+
+1. 햄버거 메뉴(☰) > Settings > Developer > "Edit Config" 버튼 클릭
+2. 아래 설정을 추가:
+
+```json
+{
+  "mcpServers": {
+    "mcp-kr-realestate": {
+      "command": "YOUR_LOCATION/.venv/bin/mcp-kr-realestate",
+      "env": {
+        "PUBLIC_DATA_API_KEY": "your-api-key-here",
+        "PUBLIC_DATA_API_KEY_ENCODED": "your-url-encoded-api-key-here",
+        "ECOS_API_KEY": "your-ecos-api-key-here",
+        "HOST": "0.0.0.0",
+        "PORT": "8001",
+        "TRANSPORT": "stdio",
+        "LOG_LEVEL": "INFO",
+        "MCP_SERVER_NAME": "mcp-kr-realestate"
+      }
+    }
+  }
+}
+```
+
+### Streamable HTTP 설정 (선택 사항)
+
+HTTP transport를 사용하여 streamable-http로 실행할 수도 있습니다:
+
+```json
+{
+  "mcpServers": {
+    "mcp-kr-realestate": {
+      "command": "YOUR_LOCATION/.venv/bin/mcp-kr-realestate",
+      "env": {
+        "PUBLIC_DATA_API_KEY": "your-api-key-here",
+        "PUBLIC_DATA_API_KEY_ENCODED": "your-url-encoded-api-key-here",
+        "ECOS_API_KEY": "your-ecos-api-key-here",
+        "HOST": "0.0.0.0",
+        "PORT": "9001",
+        "TRANSPORT": "streamable-http",
+        "LOG_LEVEL": "INFO",
+        "MCP_SERVER_NAME": "mcp-kr-realestate"
+      }
+    }
+  }
+}
+```
+
+> [!NOTE]
+> - `TRANSPORT="streamable-http"` 설정시 서버는 streamable-http 방식으로 실행됩니다
+> - 엔드포인트: `http://HOST:PORT/mcp`
+
+> [!NOTE]
+> - `YOUR_LOCATION`: 가상환경이 설치된 실제 경로로 변경
+> - `your-api-key-here`: 발급받은 공공데이터포털 API 키로 변경 (URL 인코딩된 버전도 함께 설정)
+> - `your-ecos-api-key-here`: 발급받은 ECOS API 키로 변경
+
+### 주요 환경 변수
+
+- `PUBLIC_DATA_API_KEY`: 공공데이터포털 API 키 (디코딩된 형태)
+- `PUBLIC_DATA_API_KEY_ENCODED`: 공공데이터포털 API 키 (URL 인코딩된 형태)
+- `ECOS_API_KEY`: 한국은행 ECOS API 키
+- `HOST`: 서버 호스트 (기본값: 0.0.0.0)
+- `PORT`: 서버 포트 (기본값: 8001)
+- `TRANSPORT`: 전송 방식 (stdio 권장, streamable-http로 설정시 HTTP transport 지원)
+- `LOG_LEVEL`: 로깅 레벨 (INFO, DEBUG 등)
+- `MCP_SERVER_NAME`: 서버 이름
+
+---
+
+## 🛠️ 사용 예시
+
+AI 어시스턴트에게 다음과 같은 요청을 할 수 있습니다:
+
+- **📊 실거래가 조회** - "강남구 아파트 매매 실거래가 2025년 5월 데이터를 가져와주세요"
+- **📈 시장 분석** - "서초동 오피스텔 전월세 시장을 분석해주세요"
+- **🏦 경제지표 검색** - "기준금리와 주택매매가격지수를 검색해주세요"
+- **🔍 데이터 검색** - "캐시된 아파트 거래 데이터에서 특정 단지명으로 검색해주세요"
 
 ### 1. 실거래가 데이터 수집 및 분석
 
@@ -173,29 +278,59 @@ print(ecos_data.text)  # 캐시된 데이터 파일 경로
 
 ---
 
-## 🖥️ MCP 클라이언트 연동 가이드
+## 문제 해결 및 디버깅
 
-### Claude Desktop 연동
-```json
-{
-  "mcpServers": {
-    "kr-realestate": {
-      "command": "/your/path/.venv/bin/mcp-kr-realestate",
-      "env": {
-        "PUBLIC_DATA_API_KEY_ENCODED": "your_api_key_here",
-        "ECOS_API_KEY": "your_ecos_key_here"
-      }
-    }
-  }
-}
+### 일반적인 문제
+
+- **인증 실패**:
+  - API 키가 유효하고 활성 상태인지 확인
+  - API 키에 필요한 권한이 있는지 확인
+  - 공공데이터포털 API 키는 URL 인코딩된 버전도 함께 설정해야 함
+
+- **데이터 접근 문제**:
+  - 일부 데이터는 추가 권한이 필요할 수 있음
+  - 특정 데이터는 지연된 접근(최대 24시간)이 있을 수 있음
+  - 지역코드가 올바른지 확인 (get_region_codes로 확인 가능)
+
+- **연결 문제**:
+  - 인터넷 연결 확인
+  - 공공 API 서비스 가용성 확인
+  - 방화벽이 연결을 차단하지 않는지 확인
+
+### 디버깅 도구
+
+```bash
+# 상세 로깅 활성화
+export LOG_LEVEL=DEBUG
+
+# 서버 직접 실행 테스트
+python -m mcp_kr_realestate.server
+
+# 가상환경에서 실행 확인
+source .venv/bin/activate
+mcp-kr-realestate
 ```
 
-### 지원 플랫폼
+---
+
+## 보안
+
+- API 키를 절대 공유하지 마세요
+- `.env` 파일을 안전하게 보관하세요
+- 적절한 속도 제한을 사용하세요
+- API 사용량을 모니터링하세요
+- 민감한 데이터는 환경 변수에 저장하세요
+
+---
+
+## 지원 플랫폼
+
 - **macOS**: Intel/Apple Silicon 모두 지원
 - **Windows**: Windows 10/11 지원
 - **Linux**: Ubuntu 20.04+ 지원
 
 ### 필수 의존성
+
 - Python 3.10+
 - requests, pandas, python-dotenv
 - fastmcp 2.2.3, mcp 1.6.0
@@ -205,26 +340,37 @@ print(ecos_data.text)  # 캐시된 데이터 파일 경로
 ## ⚠️ 중요 참고사항
 
 ### API 키 설정
+
 1. **공공데이터포털 API 키**: [data.go.kr](https://data.go.kr)에서 발급 (URL 인코딩 필요)
-2. **ECOS API 키**: [한국은행 ECOS](https://ecos.bok.or.kr)에서 발급
+   - 디코딩된 키와 인코딩된 키 모두 설정 필요
+2. **ECOS API 키**: [한국은행 ECOS](https://ecos.bok.or.kr/api/)에서 발급
 
 ### 데이터 관리
+
 - 모든 데이터는 `src/mcp_kr_realestate/utils/cache/`에 자동 캐싱
 - 캐시 파일은 24시간 주기로 자동 갱신됨
 - 수동 캐시 삭제/갱신 가능
 
 ### 알려진 제한사항
+
 - **지역별 데이터**: 거래가 없는 지역/기간의 경우 빈 결과 반환
 - **API 응답속도**: 대용량 데이터 조회 시 1-3초 소요 가능
 - **개발 예정 기능**: 부동산-거시지표 상관분석, 포트폴리오 최적화, AI 보고서 생성
 
 ---
 
-## 📝 기여/문의/라이선스
+## 기여하기
 
-- 기여 방법, 이슈/문의, 라이선스(기존 내용 유지)
+기여를 환영합니다! 기여하시려면:
 
-### 라이선스
+1. 저장소를 포크하세요
+2. 기능 브랜치를 만드세요
+3. 변경사항을 작성하세요
+4. 풀 리퀘스트를 제출하세요
+
+---
+
+## 라이선스
 
 이 프로젝트는 [CC BY-NC 4.0 (비상업적 이용만 허용)](https://creativecommons.org/licenses/by-nc/4.0/) 라이선스를 따릅니다.
 
