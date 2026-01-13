@@ -102,6 +102,7 @@ pyrightconfig.json
 .env
 .env.*
 .venv/
+.venv310/
 venv/
 ENV/
 env.bak/
